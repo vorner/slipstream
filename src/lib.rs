@@ -27,6 +27,10 @@ mod inner {
     unsafe impl Repr<u16> for Wrapping<u16> {
         type LANE_MULTIPLYIER = U1;
     }
+
+    unsafe impl Repr<u32> for Wrapping<u32> {
+        type LANE_MULTIPLYIER = U1;
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -42,14 +46,32 @@ impl Display for InstructionSetNotAvailable {
 impl std::error::Error for InstructionSetNotAvailable {}
 
 pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
+    #[inline]
+    fn load<V, B, S>(self, input: &[B]) -> V
+    where
+        V: Vector<B, S, Self>
+    {
+        V::new(input, self)
+    }
+
+    #[inline]
+    fn splat<V, B, S>(self, value: B) -> V
+    where
+        V: Vector<B, S, Self>,
+        B: Copy,
+        S: ArrayLength<B>,
+    {
+        V::splat(value, self)
+    }
     fn detect() -> Result<Self, InstructionSetNotAvailable>;
-    type u16x4: Vector<u16, U4, Self>;
-    type u16x8: Vector<u16, U8, Self>;
+    type u16x4: IntVector<u16, U4, Self>;
+    type u16x8: IntVector<u16, U8, Self>;
+    type u32x16: IntVector<u32, U16, Self>;
 }
 
 // It's OK to let users create this one directly, it's safe to use always.
 #[derive(Copy, Clone, Debug)]
-struct Polyfill;
+pub struct Polyfill;
 
 impl inner::InstructionSet for Polyfill { }
 
@@ -60,6 +82,7 @@ impl InstructionSet for Polyfill {
     }
     type u16x8 = VectorImpl<u16, Wrapping<u16>, U8, Polyfill>;
     type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Polyfill>;
+    type u32x16 = VectorImpl<u32, Wrapping<u32>, U16, Polyfill>;
 }
 
 pub trait Vector<B, S, I>:
@@ -81,10 +104,28 @@ pub trait Vector<B, S, I>:
     }
 }
 
+pub trait IntVector<B, S, I>:
+    Copy + Send + Sync + 'static +
+    Vector<B, S, I> +
+    Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign +
+    Mul<Output = Self> + MulAssign
+{
+}
+
+impl<V, B, S, I> IntVector<B, S, I> for V
+where
+    V: Copy + Send + Sync + 'static +
+        Vector<B, S, I> +
+        Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign +
+        Mul<Output = Self> + MulAssign
+{}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
 {
     content: GenericArray<R, S>,
     _props: PhantomData<(B, I, <S as Mul<R::LANE_MULTIPLYIER>>::Output)>,
@@ -94,6 +135,7 @@ impl<B, R, S, I> Vector<B, <S as Mul<R::LANE_MULTIPLYIER>>::Output, I> for Vecto
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
     <S as Mul<R::LANE_MULTIPLYIER>>::Output: ArrayLength<B>,
 {
     #[inline]
@@ -118,6 +160,7 @@ impl<B, R, S, I> Deref for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
 {
     type Target = [B];
     #[inline]
@@ -135,6 +178,7 @@ impl<B, R, S, I> DerefMut for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut [B] {
@@ -151,6 +195,7 @@ impl<B, R, S, I> Index<usize> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
 {
     type Output = B;
     #[inline]
@@ -163,6 +208,7 @@ impl<B, R, S, I> IndexMut<usize> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S::ArrayType: Copy,
 {
     #[inline]
     fn index_mut(&mut self, idx: usize) -> &mut B {
@@ -176,8 +222,10 @@ macro_rules! bin_op_impl {
         where
             R: inner::Repr<B> + $tr<Output = R> + Copy,
             S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S::ArrayType: Copy,
         {
             type Output = Self;
+            #[inline]
             fn $meth(self, rhs: Self) -> Self {
                 let content = self.content.iter()
                     .zip(rhs.content.iter())
@@ -194,7 +242,9 @@ macro_rules! bin_op_impl {
         where
             R: inner::Repr<B> + $tr_assign + Copy,
             S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S::ArrayType: Copy,
         {
+            #[inline]
             fn $meth_assign(&mut self, rhs: Self) {
                 for (r, s) in self.content.iter_mut().zip(rhs.content.iter()) {
                     $tr_assign::$meth_assign(r, *s);

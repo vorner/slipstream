@@ -262,3 +262,30 @@ bin_op_impl!(Rem, rem, RemAssign, rem_assign);
 bin_op_impl!(BitAnd, bitand, BitAndAssign, bitand_assign);
 bin_op_impl!(BitOr, bitor, BitOrAssign, bitor_assign);
 bin_op_impl!(BitXor, bitxor, BitXorAssign, bitxor_assign);
+
+macro_rules! una_op_impl {
+    ($tr: ident, $meth: ident) => {
+        impl<B, R, S, I> $tr for VectorImpl<B, R, S, I>
+        where
+            R: inner::Repr<B> + $tr<Output = R> + Copy,
+            S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            type Output = Self;
+            fn $meth(self) -> Self {
+                let content = self.content
+                    .iter()
+                    .copied()
+                    .map($tr::$meth)
+                    .collect();
+                Self {
+                    content,
+                    _props: PhantomData,
+                }
+            }
+        }
+    }
+}
+
+una_op_impl!(Neg, neg);
+una_op_impl!(Not, not);

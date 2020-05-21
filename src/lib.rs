@@ -6,6 +6,7 @@ use core::iter;
 use core::marker::PhantomData;
 use core::num::Wrapping;
 use core::ops::*;
+use core::ptr;
 use core::slice;
 
 use generic_array::{ArrayLength, GenericArray};
@@ -153,9 +154,9 @@ where
             "Creating vector from the wrong sized slice",
         );
         unsafe {
-            let input: &[R] = slice::from_raw_parts(input.as_ptr().cast(), S::USIZE);
+            let content = ptr::read_unaligned(input.as_ptr().cast());
             Self {
-                content: GenericArray::clone_from_slice(input),
+                content,
                 _props: PhantomData,
             }
         }

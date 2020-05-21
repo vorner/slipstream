@@ -8,7 +8,7 @@ use array_init::array_init;
 use impatient::{InstructionSet, Polyfill, Sse4_1};
 use rand::random;
 
-const SIZE: usize = 64;
+const SIZE: usize = 512;
 struct Matrix([[u32; SIZE]; SIZE]);
 
 impl Matrix {

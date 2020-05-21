@@ -12,6 +12,12 @@ use generic_array::{ArrayLength, GenericArray};
 use typenum::consts::*;
 use typenum::marker_traits::Unsigned;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod sse;
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub use sse::Sse4_1;
+
 mod inner {
     use core::num::Wrapping;
 
@@ -21,6 +27,7 @@ mod inner {
     pub trait InstructionSet: Sized { }
 
     pub unsafe trait Repr<For>: Copy {
+        // XXX Rename
         type LANE_MULTIPLYIER: Unsigned;
     }
 

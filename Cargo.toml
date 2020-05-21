@@ -20,4 +20,5 @@ typenum = "~1"
 
 [dev-dependencies]
 array-init = "~0.1"
+proptest = "~0.9"
 rand = "~0.7"

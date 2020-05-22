@@ -59,26 +59,56 @@ impl std::error::Error for InstructionSetNotAvailable {}
 
 pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
     #[inline]
-    fn load<V, B, S>(self, input: &[B]) -> V
+    fn load<V, B>(self, input: &[B]) -> V
     where
-        V: Vector<B, S, Self>
+        V: Vector<B, Self>
     {
         V::new(input, self)
     }
 
     #[inline]
-    fn splat<V, B, S>(self, value: B) -> V
+    fn load_u16x4(self, input: &[u16]) -> Self::u16x4 {
+        self.load(input)
+    }
+
+    #[inline]
+    fn load_u16x8(self, input: &[u16]) -> Self::u16x8 {
+        self.load(input)
+    }
+
+    #[inline]
+    fn load_u32x16(self, input: &[u32]) -> Self::u32x16 {
+        self.load(input)
+    }
+
+    #[inline]
+    fn splat<V, B>(self, value: B) -> V
     where
-        V: Vector<B, S, Self>,
+        V: Vector<B, Self>,
         B: Copy,
-        S: ArrayLength<B>,
     {
         V::splat(value, self)
     }
+
+    #[inline]
+    fn splat_u16x4(self, value: u16) -> Self::u16x4 {
+        self.splat(value)
+    }
+
+    #[inline]
+    fn splat_u16x8(self, value: u16) -> Self::u16x8 {
+        self.splat(value)
+    }
+
+    #[inline]
+    fn splat_u32x16(self, value: u32) -> Self::u32x16 {
+        self.splat(value)
+    }
+
     fn detect() -> Result<Self, InstructionSetNotAvailable>;
-    type u16x4: IntVector<u16, U4, Self>;
-    type u16x8: IntVector<u16, U8, Self>;
-    type u32x16: IntVector<u32, U16, Self>;
+    type u16x4: IntVector<u16, Self, Lanes = U4>;
+    type u16x8: IntVector<u16, Self, Lanes = U8>;
+    type u32x16: IntVector<u32, Self, Lanes = U16>;
 }
 
 // It's OK to let users create this one directly, it's safe to use always.
@@ -97,37 +127,39 @@ impl InstructionSet for Polyfill {
     type u32x16 = VectorImpl<u32, Wrapping<u32>, U16, Polyfill>;
 }
 
-pub trait Vector<B, S, I>:
+pub trait Vector<B, I>:
     Deref<Target = [B]> + DerefMut +
     Sized
 {
+    type Lanes: ArrayLength<B>;
+    const LANES: usize = Self::Lanes::USIZE;
     // TODO: new_unchecked ‒ aligned, no instruction set checked
     fn new(input: &[B], instruction_set: I) -> Self;
+
     #[inline]
     fn splat(value: B, instruction_set: I) -> Self
     where
         B: Copy,
-        S: ArrayLength<B>,
     {
         let input = iter::repeat(value)
-            .take(S::USIZE)
-            .collect::<GenericArray<B, S>>();
+            .take(Self::LANES)
+            .collect::<GenericArray<B, Self::Lanes>>();
         Self::new(&input, instruction_set)
     }
 }
 
-pub trait IntVector<B, S, I>:
+pub trait IntVector<B, I>:
     Copy + Send + Sync + 'static +
-    Vector<B, S, I> +
+    Vector<B, I> +
     Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign +
     Mul<Output = Self> + MulAssign
 {
 }
 
-impl<V, B, S, I> IntVector<B, S, I> for V
+impl<V, B, I> IntVector<B, I> for V
 where
     V: Copy + Send + Sync + 'static +
-        Vector<B, S, I> +
+        Vector<B, I> +
         Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign +
         Mul<Output = Self> + MulAssign
 {}
@@ -143,13 +175,14 @@ where
     _props: PhantomData<(B, I, <S as Mul<R::LANE_MULTIPLYIER>>::Output)>,
 }
 
-impl<B, R, S, I> Vector<B, <S as Mul<R::LANE_MULTIPLYIER>>::Output, I> for VectorImpl<B, R, S, I>
+impl<B, R, S, I> Vector<B, I> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
     S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
     S::ArrayType: Copy,
     <S as Mul<R::LANE_MULTIPLYIER>>::Output: ArrayLength<B>,
 {
+    type Lanes = <S as Mul<R::LANE_MULTIPLYIER>>::Output;
     #[inline]
     fn new(input: &[B], _instruction_set: I) -> Self {
         assert_eq!(

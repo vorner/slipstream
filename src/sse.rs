@@ -192,13 +192,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                type S = <Sse4_1 as InstructionSet>::u32x16;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u32x16(&a);
+                let sb = sse.load_u32x16(&b);
                 let sc = sa + sb;
-                type P = <Polyfill as InstructionSet>::u32x16;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u32x16(&a);
+                let pb = poly.load_u32x16(&b);
                 let pc = pa + pb;
                 assert_eq!(sc.deref(), pc.deref());
             }
@@ -214,13 +212,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                type S = <Sse4_1 as InstructionSet>::u32x16;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u32x16(&a);
+                let sb = sse.load_u32x16(&b);
                 let sc = sa - sb;
-                type P = <Polyfill as InstructionSet>::u32x16;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u32x16(&a);
+                let pb = poly.load_u32x16(&b);
                 let pc = pa - pb;
                 assert_eq!(sc.deref(), pc.deref());
             }
@@ -236,13 +232,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                type S = <Sse4_1 as InstructionSet>::u32x16;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u32x16(&a);
+                let sb = sse.load_u32x16(&b);
                 let sc = sa * sb;
-                type P = <Polyfill as InstructionSet>::u32x16;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u32x16(&a);
+                let pb = poly.load_u32x16(&b);
                 let pc = pa * pb;
                 assert_eq!(sc.deref(), pc.deref());
             }
@@ -259,13 +253,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                type S = <Sse4_1 as InstructionSet>::u16x8;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u16x8(&a);
+                let sb = sse.load_u16x8(&b);
                 let sc = sa + sb;
-                type P = <Polyfill as InstructionSet>::u16x8;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u16x8(&a);
+                let pb = poly.load_u16x8(&b);
                 let pc = pa + pb;
                 assert_eq!(sc.deref(), pc.deref());
             }
@@ -281,13 +273,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                type S = <Sse4_1 as InstructionSet>::u16x8;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u16x8(&a);
+                let sb = sse.load_u16x8(&b);
                 let sc = sa - sb;
-                type P = <Polyfill as InstructionSet>::u16x8;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u16x8(&a);
+                let pb = poly.load_u16x8(&b);
                 let pc = pa - pb;
                 assert_eq!(sc.deref(), pc.deref());
             }
@@ -303,13 +293,11 @@ mod tests {
             #[inline]
             #[target_feature(enable = "sse2", enable = "sse4.1")]
             unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                type S = <Sse4_1 as InstructionSet>::u16x8;
-                let sa: S = sse.load(&a);
-                let sb: S = sse.load(&b);
+                let sa = sse.load_u16x8(&a);
+                let sb = sse.load_u16x8(&b);
                 let sc = sa * sb;
-                type P = <Polyfill as InstructionSet>::u16x8;
-                let pa: P = poly.load(&a);
-                let pb: P = poly.load(&b);
+                let pa = poly.load_u16x8(&a);
+                let pb = poly.load_u16x8(&b);
                 let pc = pa * pb;
                 assert_eq!(sc.deref(), pc.deref());
             }

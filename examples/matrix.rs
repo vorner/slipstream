@@ -24,7 +24,7 @@ impl Matrix {
     fn mult_simd<I: InstructionSet>(&self, is: I, rhs: &Matrix) -> Matrix {
         let mut output = [[0u32; SIZE]; SIZE];
         // TODO: This should need just one type parameter
-        let mut column = [is.splat::<I::u32x16, _, _>(0); SIZE / 16];
+        let mut column = [is.splat_u32x16(0); SIZE / 16];
         for x in 0..SIZE {
             // Do we want some kind of gather/stride way to load the vectors?
             // Anyway, as this is likely slower, we make sure to_mm_mullo_epu16 do the columns less often and
@@ -33,9 +33,9 @@ impl Matrix {
                 column[i / 16][i % 16] = rhs.0[i][x];
             }
             for y in 0..SIZE {
-                let mut result: I::u32x16 = is.splat(0);
+                let mut result = is.splat_u32x16(0);
                 for (c, r) in column.iter().zip(self.0[y].chunks_exact(16)) {
-                    result += is.load::<I::u32x16, _, _>(r) * *c;
+                    result += is.load_u32x16(r) * *c;
                 }
 
                 for p in result.iter() {

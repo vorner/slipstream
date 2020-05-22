@@ -14,8 +14,12 @@ use typenum::consts::*;
 use typenum::marker_traits::Unsigned;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod avx;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub use avx::Avx2;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub use sse::Sse4_1;
 

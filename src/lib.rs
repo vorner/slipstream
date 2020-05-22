@@ -109,6 +109,9 @@ pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
     type u16x4: IntVector<u16, Self, Lanes = U4>;
     type u16x8: IntVector<u16, Self, Lanes = U8>;
     type u32x16: IntVector<u32, Self, Lanes = U16>;
+
+    type u16s: IntVector<u16, Self>;
+    type u32s: IntVector<u32, Self>;
 }
 
 // It's OK to let users create this one directly, it's safe to use always.
@@ -125,6 +128,9 @@ impl InstructionSet for Polyfill {
     type u16x8 = VectorImpl<u16, Wrapping<u16>, U8, Polyfill>;
     type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Polyfill>;
     type u32x16 = VectorImpl<u32, Wrapping<u32>, U16, Polyfill>;
+
+    type u16s = VectorImpl<u16, Wrapping<u16>, U1, Polyfill>;
+    type u32s = VectorImpl<u32, Wrapping<u32>, U1, Polyfill>;
 }
 
 pub trait Vector<B, I>:

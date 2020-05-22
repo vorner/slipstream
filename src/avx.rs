@@ -177,6 +177,9 @@ impl InstructionSet for Avx2 {
     type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Avx2>;
     type u16x8 = VectorImpl<u16, crate::sse::u16v, U1, Avx2>;
     type u32x16 = VectorImpl<u32, u32v, U2, Avx2>;
+
+    type u16s = VectorImpl<u16, u16v, U1, Avx2>;
+    type u32s = VectorImpl<u32, u32v, U1, Avx2>;
 }
 
 #[cfg(test)]

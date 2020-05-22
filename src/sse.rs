@@ -177,6 +177,9 @@ impl InstructionSet for Sse4_1 {
     type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Sse4_1>;
     type u16x8 = VectorImpl<u16, u16v, U1, Sse4_1>;
     type u32x16 = VectorImpl<u32, u32v, U4, Sse4_1>;
+
+    type u16s = Self::u16x8;
+    type u32s = VectorImpl<u32, u32v, U1, Sse4_1>;
 }
 
 #[cfg(test)]

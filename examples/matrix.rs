@@ -5,7 +5,7 @@ use std::ops::Mul;
 use std::time::Instant;
 
 use array_init::array_init;
-use impatient::{InstructionSet, Polyfill, Sse4_1};
+use impatient::{InstructionSet, Polyfill, Sse4_1, Avx2};
 use rand::random;
 
 const SIZE: usize = 512;
@@ -67,6 +67,11 @@ unsafe fn mul_sse(sse: Sse4_1, lhs: &Matrix, rhs: &Matrix) -> Matrix {
     lhs.mult_simd(sse, rhs)
 }
 
+#[target_feature(enable = "avx2")]
+unsafe fn mul_avx(avx: Avx2, lhs: &Matrix, rhs: &Matrix) -> Matrix {
+    lhs.mult_simd(avx, rhs)
+}
+
 fn timed<R, F: FnOnce() -> R>(f: F) -> R {
     let now = Instant::now();
     let result = test::black_box(f());
@@ -82,6 +87,10 @@ fn main() {
     //assert_eq!(z, w);
     if let Ok(sse) = Sse4_1::detect() {
         let w = timed(|| unsafe { mul_sse(sse, &a, &b) });
+        //assert_eq!(z, w);
+    }
+    if let Ok(avx) = Avx2::detect() {
+        let w = timed(|| unsafe { mul_avx(avx, &a, &b) });
         //assert_eq!(z, w);
     }
 }

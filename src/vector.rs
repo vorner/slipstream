@@ -8,108 +8,12 @@ use typenum::marker_traits::Unsigned;
 
 use crate::{inner, Vector};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-{
-    content: GenericArray<R, S>,
-    _props: PhantomData<(B, I, <S as Mul<R::LaneMultiplyier>>::Output)>,
-}
-
-impl<B, R, S, I> Vector<B, I> for VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-    <S as Mul<R::LaneMultiplyier>>::Output: ArrayLength<B>,
-{
-    type Lanes = <S as Mul<R::LaneMultiplyier>>::Output;
-    #[inline]
-    fn new(input: &[B], _instruction_set: I) -> Self {
-        assert_eq!(
-            input.len(),
-            S::USIZE * R::LaneMultiplyier::USIZE,
-            "Creating vector from the wrong sized slice",
-        );
-        unsafe {
-            let content = ptr::read_unaligned(input.as_ptr().cast());
-            Self {
-                content,
-                _props: PhantomData,
-            }
-        }
-    }
-}
-
-impl<B, R, S, I> Deref for VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-{
-    type Target = [B];
-    #[inline]
-    fn deref(&self) -> &[B] {
-        unsafe {
-            slice::from_raw_parts(
-                self.content.as_ptr().cast(),
-                S::USIZE * R::LaneMultiplyier::USIZE,
-            )
-        }
-    }
-}
-
-impl<B, R, S, I> DerefMut for VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-{
-    #[inline]
-    fn deref_mut(&mut self) -> &mut [B] {
-        unsafe {
-            slice::from_raw_parts_mut(
-                self.content.as_mut_ptr().cast(),
-                S::USIZE * R::LaneMultiplyier::USIZE,
-            )
-        }
-    }
-}
-
-impl<B, R, S, I> Index<usize> for VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-{
-    type Output = B;
-    #[inline]
-    fn index(&self, idx: usize) -> &B {
-        self.deref().index(idx)
-    }
-}
-
-impl<B, R, S, I> IndexMut<usize> for VectorImpl<B, R, S, I>
-where
-    R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
-    S::ArrayType: Copy,
-{
-    #[inline]
-    fn index_mut(&mut self, idx: usize) -> &mut B {
-        self.deref_mut().index_mut(idx)
-    }
-}
-
 macro_rules! bin_op_impl {
-    ($tr: ident, $meth: ident, $tr_assign: ident, $meth_assign: ident) => {
-        impl<B, R, S, I> $tr for VectorImpl<B, R, S, I>
+    ($name: ident, $tr: ident, $meth: ident, $tr_assign: ident, $meth_assign: ident) => {
+        impl<B, R, S> $tr for $name<B, R, S>
         where
             R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
+            S: ArrayLength<R>,
             S::ArrayType: Copy,
         {
             type Output = Self;
@@ -126,10 +30,10 @@ macro_rules! bin_op_impl {
             }
         }
 
-        impl<B, R, S, I> $tr_assign for VectorImpl<B, R, S, I>
+        impl<B, R, S> $tr_assign for $name<B, R, S>
         where
             R: inner::Repr<B> + $tr_assign + Copy,
-            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
+            S: ArrayLength<R>,
             S::ArrayType: Copy,
         {
             #[inline]
@@ -142,24 +46,16 @@ macro_rules! bin_op_impl {
     }
 }
 
-bin_op_impl!(Add, add, AddAssign, add_assign);
-bin_op_impl!(Sub, sub, SubAssign, sub_assign);
-bin_op_impl!(Mul, mul, MulAssign, mul_assign);
-bin_op_impl!(Div, div, DivAssign, div_assign);
-bin_op_impl!(Rem, rem, RemAssign, rem_assign);
-bin_op_impl!(BitAnd, bitand, BitAndAssign, bitand_assign);
-bin_op_impl!(BitOr, bitor, BitOrAssign, bitor_assign);
-bin_op_impl!(BitXor, bitxor, BitXorAssign, bitxor_assign);
-
 macro_rules! una_op_impl {
-    ($tr: ident, $meth: ident) => {
-        impl<B, R, S, I> $tr for VectorImpl<B, R, S, I>
+    ($name: ident, $tr: ident, $meth: ident) => {
+        impl<B, R, S> $tr for $name<B, R, S>
         where
             R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
+            S: Unsigned + ArrayLength<R>,
             S::ArrayType: Copy,
         {
             type Output = Self;
+            #[inline]
             fn $meth(self) -> Self {
                 let content = self.content
                     .iter()
@@ -175,5 +71,123 @@ macro_rules! una_op_impl {
     }
 }
 
-una_op_impl!(Neg, neg);
-una_op_impl!(Not, not);
+macro_rules! vector_impl {
+    ($name: ident, $align: expr) => {
+        #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+        #[repr(C, align($align))]
+        pub struct $name<B, R, S>
+        where
+            R: inner::Repr<B>,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            content: GenericArray<R, S>,
+            _props: PhantomData<B>,
+        }
+
+        impl<B, R, S> Vector<B> for $name<B, R, S>
+        where
+            B: 'static,
+            R: inner::Repr<B> + 'static,
+            S: ArrayLength<R> + ArrayLength<B> + 'static,
+            <S as ArrayLength<R>>::ArrayType: Copy,
+        {
+            type Lanes = S;
+            #[inline]
+            fn new(input: &[B]) -> Self {
+                assert_eq!(
+                    input.len(),
+                    S::USIZE,
+                    "Creating vector from the wrong sized slice",
+                );
+                unsafe {
+                    let content = ptr::read(input.as_ptr().cast());
+                    Self {
+                        content,
+                        _props: PhantomData,
+                    }
+                }
+            }
+        }
+
+        impl<B, R, S> Deref for $name<B, R, S>
+        where
+            R: inner::Repr<B>,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            type Target = [B];
+            #[inline]
+            fn deref(&self) -> &[B] {
+                unsafe {
+                    slice::from_raw_parts(
+                        self.content.as_ptr().cast(),
+                        S::USIZE,
+                    )
+                }
+            }
+        }
+
+        impl<B, R, S> DerefMut for $name<B, R, S>
+        where
+            R: inner::Repr<B>,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            #[inline]
+            fn deref_mut(&mut self) -> &mut [B] {
+                unsafe {
+                    slice::from_raw_parts_mut(
+                        self.content.as_mut_ptr().cast(),
+                        S::USIZE,
+                    )
+                }
+            }
+        }
+
+        impl<B, R, S> Index<usize> for $name<B, R, S>
+        where
+            R: inner::Repr<B>,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            type Output = B;
+            #[inline]
+            fn index(&self, idx: usize) -> &B {
+                self.deref().index(idx)
+            }
+        }
+
+        impl<B, R, S> IndexMut<usize> for $name<B, R, S>
+        where
+            R: inner::Repr<B>,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+        {
+            #[inline]
+            fn index_mut(&mut self, idx: usize) -> &mut B {
+                self.deref_mut().index_mut(idx)
+            }
+        }
+
+        bin_op_impl!($name, Add, add, AddAssign, add_assign);
+        bin_op_impl!($name, Sub, sub, SubAssign, sub_assign);
+        bin_op_impl!($name, Mul, mul, MulAssign, mul_assign);
+        bin_op_impl!($name, Div, div, DivAssign, div_assign);
+        bin_op_impl!($name, Rem, rem, RemAssign, rem_assign);
+        bin_op_impl!($name, BitAnd, bitand, BitAndAssign, bitand_assign);
+        bin_op_impl!($name, BitOr, bitor, BitOrAssign, bitor_assign);
+        bin_op_impl!($name, BitXor, bitxor, BitXorAssign, bitxor_assign);
+
+        una_op_impl!($name, Neg, neg);
+        una_op_impl!($name, Not, not);
+    }
+}
+
+vector_impl!(Packed1, 1);
+vector_impl!(Packed2, 2);
+vector_impl!(Packed4, 4);
+vector_impl!(Packed8, 8);
+vector_impl!(Packed16, 16);
+vector_impl!(Packed32, 32);
+vector_impl!(Packed64, 64);

@@ -5,11 +5,14 @@ use std::ops::Mul;
 use std::time::Instant;
 
 use array_init::array_init;
-use impatient::{InstructionSet, Polyfill, Sse4_1, Avx2, Vector};
+use impatient::prelude::*;
+use multiversion::multiversion;
 use rand::random;
 
 const SIZE: usize = 512;
 struct Matrix([[u32; SIZE]; SIZE]);
+
+type V = u32x16;
 
 impl Matrix {
     fn random() -> Self {
@@ -20,26 +23,27 @@ impl Matrix {
         }))
     }
 
-    #[inline]
-    fn mult_simd<I: InstructionSet>(&self, is: I, rhs: &Matrix) -> Matrix {
+    #[multiversion]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+    fn mult_simd(&self, rhs: &Matrix) -> Matrix {
         let mut output = [[0u32; SIZE]; SIZE];
-        let mut column = [I::u32x16::splat(0, is); SIZE / 16];
+        let mut column: [V; SIZE / V::LANES] = [Default::default(); SIZE / V::LANES];
         for x in 0..SIZE {
             // Do we want some kind of gather/stride way to load the vectors?
-            // Anyway, as this is likely slower, we make sure to_mm_mullo_epu16 do the columns less often and
+            // Anyway, as this is likely slower, we make sure to do the columns less often and
             // cache them for each corresponding rows, which load much faster
             for i in 0..SIZE {
-                column[i / 16][i % 16] = rhs.0[i][x];
+                column[i / V::LANES][i % V::LANES] = rhs.0[i][x];
             }
             for y in 0..SIZE {
-                let mut result: I::u32x16 = is.splat(0);
-                for (c, r) in column.iter().zip(self.0[y].chunks_exact(16)) {
-                    result += *c * is.load(r);
+                let mut result = V::default();
+                for (c, r) in column.iter().zip(self.0[y].chunks_exact(V::LANES)) {
+                    result += *c * V::new(r);
                 }
 
-                for p in result.iter() {
-                    output[y][x] = output[y][x].wrapping_add(*p);
-                }
+                output[y][x] = result.iter().sum();
             }
         }
         Matrix(output)
@@ -61,16 +65,6 @@ impl Mul for &'_ Matrix {
     }
 }
 
-#[target_feature(enable = "sse2", enable = "sse4.1")]
-unsafe fn mul_sse(sse: Sse4_1, lhs: &Matrix, rhs: &Matrix) -> Matrix {
-    lhs.mult_simd(sse, rhs)
-}
-
-#[target_feature(enable = "avx2")]
-unsafe fn mul_avx(avx: Avx2, lhs: &Matrix, rhs: &Matrix) -> Matrix {
-    lhs.mult_simd(avx, rhs)
-}
-
 fn timed<R, F: FnOnce() -> R>(f: F) -> R {
     let now = Instant::now();
     let result = test::black_box(f());
@@ -82,8 +76,10 @@ fn main() {
     let a = Matrix::random();
     let b = Matrix::random();
     let z = timed(|| &a * &b);
-    let w = timed(|| a.mult_simd(Polyfill, &b));
+    let x = timed(|| a.mult_simd_default_version(&b));
+    let w = timed(|| a.mult_simd(&b));
     //assert_eq!(z, w);
+    /*
     if let Ok(sse) = Sse4_1::detect() {
         let w = timed(|| unsafe { mul_sse(sse, &a, &b) });
         //assert_eq!(z, w);
@@ -92,4 +88,5 @@ fn main() {
         let w = timed(|| unsafe { mul_avx(avx, &a, &b) });
         //assert_eq!(z, w);
     }
+    */
 }

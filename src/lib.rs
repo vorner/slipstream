@@ -4,6 +4,7 @@
 use core::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use core::iter;
 use core::marker::PhantomData;
+use core::mem;
 use core::num::Wrapping;
 use core::ops::*;
 use core::ptr;
@@ -33,15 +34,15 @@ mod inner {
 
     pub unsafe trait Repr<For>: Copy {
         // XXX Rename
-        type LANE_MULTIPLYIER: Unsigned;
+        type LaneMultiplyier: Unsigned;
     }
 
     unsafe impl Repr<u16> for Wrapping<u16> {
-        type LANE_MULTIPLYIER = U1;
+        type LaneMultiplyier = U1;
     }
 
     unsafe impl Repr<u32> for Wrapping<u32> {
-        type LANE_MULTIPLYIER = U1;
+        type LaneMultiplyier = U1;
     }
 }
 
@@ -82,6 +83,16 @@ pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
     }
 
     #[inline]
+    fn load_u16s(self, input: &[u16]) -> Self::u16s {
+        self.load(input)
+    }
+
+    #[inline]
+    fn load_u32s(self, input: &[u32]) -> Self::u32s {
+        self.load(input)
+    }
+
+    #[inline]
     fn splat<V, B>(self, value: B) -> V
     where
         V: Vector<B, Self>,
@@ -91,18 +102,53 @@ pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
     }
 
     #[inline]
-    fn splat_u16x4(self, value: u16) -> Self::u16x4 {
-        self.splat(value)
+    fn splat_u16x4(self, input: u16) -> Self::u16x4 {
+        self.splat(input)
     }
 
     #[inline]
-    fn splat_u16x8(self, value: u16) -> Self::u16x8 {
-        self.splat(value)
+    fn splat_u16x8(self, input: u16) -> Self::u16x8 {
+        self.splat(input)
     }
 
     #[inline]
-    fn splat_u32x16(self, value: u32) -> Self::u32x16 {
-        self.splat(value)
+    fn splat_u32x16(self, input: u32) -> Self::u32x16 {
+        self.splat(input)
+    }
+
+    #[inline]
+    fn splat_u16s(self, input: u16) -> Self::u16s {
+        self.splat(input)
+    }
+
+    #[inline]
+    fn splat_u32s(self, input: u32) -> Self::u32s {
+        self.splat(input)
+    }
+
+    // XXX Better name? Like, split?
+    #[inline]
+    fn iter<B, V>(self, arr: &[B]) -> Iter<V, B, Self>
+    where
+        V: Vector<B, Self>,
+    {
+        Iter {
+            data: arr,
+            ins: self,
+            _v: PhantomData,
+        }
+    }
+
+    #[inline]
+    fn iter_mut<B, V>(self, arr: &mut [B]) -> IterMut<V, B, Self>
+    where
+        V: Vector<B, Self>,
+    {
+        IterMut {
+            data: arr,
+            ins: self,
+            _v: PhantomData,
+        }
     }
 
     fn detect() -> Result<Self, InstructionSetNotAvailable>;
@@ -112,6 +158,123 @@ pub trait InstructionSet: Copy + Debug + inner::InstructionSet {
 
     type u16s: IntVector<u16, Self>;
     type u32s: IntVector<u32, Self>;
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Iter<'a, V, B, I> {
+    data: &'a [B],
+    ins: I,
+    _v: PhantomData<V>,
+}
+
+impl<V, B, I> Iterator for Iter<'_, V, B, I>
+where
+    V: Vector<B, I>,
+    B: Default + Copy,
+    I: Copy,
+{
+    type Item = V;
+    #[inline]
+    fn next(&mut self) -> Option<V> {
+        if self.data.len() >= V::LANES {
+            let (start, rest) = self.data.split_at(V::LANES);
+            self.data = rest;
+            Some(V::new(start, self.ins))
+        } else if self.data.is_empty() {
+            None
+        } else {
+            let mut vec = V::splat(Default::default(), self.ins);
+            vec.deref_mut()[..self.data.len()].copy_from_slice(self.data);
+            self.data = &[];
+            Some(vec)
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = (self.data.len() + V::LANES - 1) / V::LANES;
+        (len, Some(len))
+    }
+}
+
+pub struct IterMut<'a, V, B, I> {
+    data: &'a mut [B],
+    ins: I,
+    _v: PhantomData<V>,
+}
+
+impl<'a, V, B, I> Iterator for IterMut<'a, V, B, I>
+where
+    V: Vector<B, I>,
+    B: Default + Copy,
+    I: Copy,
+{
+    type Item = MutProxy<'a, V, B>;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.len() >= V::LANES {
+            let data = mem::take(&mut self.data);
+            let (start, rest) = data.split_at_mut(V::LANES);
+            self.data = rest;
+            let data = V::new(start, self.ins);
+            Some(MutProxy {
+                data,
+                restore: start,
+            })
+        } else if self.data.is_empty() {
+            None
+        } else {
+            let mut data = V::splat(Default::default(), self.ins);
+            let restore = mem::take(&mut self.data);
+            data.deref_mut()[..self.data.len()].copy_from_slice(self.data);
+            Some(MutProxy {
+                data,
+                restore,
+            })
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MutProxy<'a, V, B>
+where
+    V: Deref<Target = [B]>,
+    B: Copy,
+{
+    data: V,
+    restore: &'a mut [B],
+}
+
+impl<V, B> Deref for MutProxy<'_, V, B>
+where
+    V: Deref<Target = [B]>,
+    B: Copy,
+{
+    type Target = V;
+    fn deref(&self) -> &V {
+        &self.data
+    }
+}
+
+impl<V, B> DerefMut for MutProxy<'_, V, B>
+where
+    V: Deref<Target = [B]>,
+    B: Copy,
+{
+    fn deref_mut(&mut self) -> &mut V {
+        &mut self.data
+    }
+}
+
+impl<V, B> Drop for MutProxy<'_, V, B>
+where
+    V: Deref<Target = [B]>,
+    B: Copy,
+{
+    #[inline]
+    fn drop(&mut self) {
+        self.restore.copy_from_slice(&self.data.deref()[..self.restore.len()]);
+    }
 }
 
 // It's OK to let users create this one directly, it's safe to use always.
@@ -174,26 +337,26 @@ where
 pub struct VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
 {
     content: GenericArray<R, S>,
-    _props: PhantomData<(B, I, <S as Mul<R::LANE_MULTIPLYIER>>::Output)>,
+    _props: PhantomData<(B, I, <S as Mul<R::LaneMultiplyier>>::Output)>,
 }
 
 impl<B, R, S, I> Vector<B, I> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
-    <S as Mul<R::LANE_MULTIPLYIER>>::Output: ArrayLength<B>,
+    <S as Mul<R::LaneMultiplyier>>::Output: ArrayLength<B>,
 {
-    type Lanes = <S as Mul<R::LANE_MULTIPLYIER>>::Output;
+    type Lanes = <S as Mul<R::LaneMultiplyier>>::Output;
     #[inline]
     fn new(input: &[B], _instruction_set: I) -> Self {
         assert_eq!(
             input.len(),
-            S::USIZE * R::LANE_MULTIPLYIER::USIZE,
+            S::USIZE * R::LaneMultiplyier::USIZE,
             "Creating vector from the wrong sized slice",
         );
         unsafe {
@@ -210,7 +373,7 @@ where
 impl<B, R, S, I> Deref for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
 {
     type Target = [B];
@@ -219,7 +382,7 @@ where
         unsafe {
             slice::from_raw_parts(
                 self.content.as_ptr().cast(),
-                S::USIZE * R::LANE_MULTIPLYIER::USIZE,
+                S::USIZE * R::LaneMultiplyier::USIZE,
             )
         }
     }
@@ -228,7 +391,7 @@ where
 impl<B, R, S, I> DerefMut for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
 {
     #[inline]
@@ -236,7 +399,7 @@ where
         unsafe {
             slice::from_raw_parts_mut(
                 self.content.as_mut_ptr().cast(),
-                S::USIZE * R::LANE_MULTIPLYIER::USIZE,
+                S::USIZE * R::LaneMultiplyier::USIZE,
             )
         }
     }
@@ -245,7 +408,7 @@ where
 impl<B, R, S, I> Index<usize> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
 {
     type Output = B;
@@ -258,7 +421,7 @@ where
 impl<B, R, S, I> IndexMut<usize> for VectorImpl<B, R, S, I>
 where
     R: inner::Repr<B>,
-    S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+    S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
     S::ArrayType: Copy,
 {
     #[inline]
@@ -272,7 +435,7 @@ macro_rules! bin_op_impl {
         impl<B, R, S, I> $tr for VectorImpl<B, R, S, I>
         where
             R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
             S::ArrayType: Copy,
         {
             type Output = Self;
@@ -292,7 +455,7 @@ macro_rules! bin_op_impl {
         impl<B, R, S, I> $tr_assign for VectorImpl<B, R, S, I>
         where
             R: inner::Repr<B> + $tr_assign + Copy,
-            S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
             S::ArrayType: Copy,
         {
             #[inline]
@@ -319,7 +482,7 @@ macro_rules! una_op_impl {
         impl<B, R, S, I> $tr for VectorImpl<B, R, S, I>
         where
             R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: Unsigned + Mul<R::LANE_MULTIPLYIER> + ArrayLength<R>,
+            S: Unsigned + Mul<R::LaneMultiplyier> + ArrayLength<R>,
             S::ArrayType: Copy,
         {
             type Output = Self;
@@ -340,3 +503,53 @@ macro_rules! una_op_impl {
 
 una_op_impl!(Neg, neg);
 una_op_impl!(Not, not);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iter() {
+        fn inner<I: InstructionSet>() {
+            let data = (0..=10u16).collect::<Vec<_>>();
+            let is = I::detect().unwrap();
+            let mut acc = is.splat_u16s(0);
+            for v in is.iter(&data) {
+                acc += v;
+            }
+            let total: u16 = acc.iter().sum();
+            assert_eq!(total, 55);
+        }
+        inner::<Polyfill>();
+        inner::<Sse4_1>();
+    }
+
+    #[test]
+    fn iter_poly() {
+        let data = (0..=10u16).collect::<Vec<_>>();
+        let is = Polyfill;
+        let vtotal = is.iter(&data)
+            .fold(is.splat_u16s(0u16), |a, b| a + b);
+        let total: u16 = vtotal.iter().sum();
+        assert_eq!(total, 55);
+    }
+
+    #[test]
+    fn iter_mut() {
+        fn inner<I: InstructionSet>() {
+            let data = (0..33u32).collect::<Vec<_>>();
+            let mut dst = [0u32; 33];
+            let is = I::detect().unwrap();
+            let ones = is.splat_u32s(1);
+            for (mut d, s) in is.iter_mut(&mut dst).zip(is.iter(&data)) {
+                *d = ones + s;
+            }
+
+            for (l, r) in data.iter().zip(dst.iter()) {
+                assert_eq!(*l + 1, *r);
+            }
+        }
+        inner::<Polyfill>();
+        inner::<Sse4_1>();
+    }
+}

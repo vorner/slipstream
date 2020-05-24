@@ -17,7 +17,7 @@ use crate::inner::Repr;
 pub struct u32v(__m256i);
 
 unsafe impl Repr<u32> for u32v {
-    type LANE_MULTIPLYIER = U8;
+    type LaneMultiplyier = U8;
 }
 
 impl Add for u32v {
@@ -91,7 +91,7 @@ impl MulAssign for u32v {
 pub struct u16v(__m256i);
 
 unsafe impl Repr<u16> for u16v {
-    type LANE_MULTIPLYIER = U16;
+    type LaneMultiplyier = U16;
 }
 
 impl Add for u16v {

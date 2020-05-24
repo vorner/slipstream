@@ -25,13 +25,8 @@ impl Add for u32v {
     type Output = Self;
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u32v, rhs: u32v) -> u32v {
-            u32v(arch::_mm256_add_epi32(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u32v(arch::_mm256_add_epi32(self.0, rhs.0))
         }
     }
 }
@@ -47,13 +42,8 @@ impl Sub for u32v {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u32v, rhs: u32v) -> u32v {
-            u32v(arch::_mm256_sub_epi32(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u32v(arch::_mm256_sub_epi32(self.0, rhs.0))
         }
     }
 }
@@ -69,13 +59,8 @@ impl Mul for u32v {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u32v, rhs: u32v) -> u32v {
-            u32v(arch::_mm256_mullo_epi32(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u32v(arch::_mm256_mullo_epi32(self.0, rhs.0))
         }
     }
 }
@@ -99,13 +84,8 @@ impl Add for u16v {
     type Output = Self;
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u16v, rhs: u16v) -> u16v {
-            u16v(arch::_mm256_add_epi16(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u16v(arch::_mm256_add_epi16(self.0, rhs.0))
         }
     }
 }
@@ -121,13 +101,8 @@ impl Sub for u16v {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u16v, rhs: u16v) -> u16v {
-            u16v(arch::_mm256_sub_epi16(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u16v(arch::_mm256_sub_epi16(self.0, rhs.0))
         }
     }
 }
@@ -143,13 +118,8 @@ impl Mul for u16v {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        #[inline]
-        #[target_feature(enable = "avx2")]
-        unsafe fn inner(lhs: u16v, rhs: u16v) -> u16v {
-            u16v(arch::_mm256_mullo_epi16(lhs.0, rhs.0))
-        }
         unsafe {
-            inner(self, rhs)
+            u16v(arch::_mm256_mullo_epi16(self.0, rhs.0))
         }
     }
 }

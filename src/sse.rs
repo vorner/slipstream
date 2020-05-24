@@ -9,8 +9,9 @@ use arch::__m128i;
 
 use typenum::consts::*;
 
-use crate::{InstructionSet, InstructionSetNotAvailable, VectorImpl};
+use crate::{InstructionSet, InstructionSetNotAvailable};
 use crate::inner::Repr;
+use crate::vector::VectorImpl;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
@@ -174,142 +175,79 @@ impl InstructionSet for Sse4_1 {
         }
     }
 
-    type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Sse4_1>;
-    type u16x8 = VectorImpl<u16, u16v, U1, Sse4_1>;
-    type u32x16 = VectorImpl<u32, u32v, U4, Sse4_1>;
+    type u16x8 = u16x8;
+    type u16x4 = u16x4;
+    type u32x16 = u32x16;
 
-    type u16s = Self::u16x8;
-    type u32s = VectorImpl<u32, u32v, U1, Sse4_1>;
+    type u16s = u16s;
+    type u32s = u32s;
 }
+
+pub type u16x4 = VectorImpl<u16, Wrapping<u16>, U4, Sse4_1>;
+pub type u16x8 = VectorImpl<u16, u16v, U1, Sse4_1>;
+pub type u32x16 = VectorImpl<u32, u32v, U4, Sse4_1>;
+
+pub type u16s = u16x8;
+pub type u32s = VectorImpl<u32, u32v, U1, Sse4_1>;
 
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
 
-    use crate::Polyfill;
+    use crate::polyfill::{self as p, Polyfill};
     use super::*;
 
-    proptest! {
-        #[test]
-        fn add_u32(a: [u32; 16], b: [u32; 16]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                let sa = sse.load_u32x16(&a);
-                let sb = sse.load_u32x16(&b);
-                let sc = sa + sb;
-                let pa = poly.load_u32x16(&a);
-                let pb = poly.load_u32x16(&b);
-                let pc = pa + pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
-            }
-        }
+    macro_rules! tst {
+        ($meth: ident, $t_u16: ident, $t_u32: ident) => {
+            proptest! {
+                #[test]
+                fn $t_u32(a: [u32; 16], b: [u32; 16]) {
+                    #[inline]
+                    #[target_feature(enable = "sse2", enable = "sse4.1")]
+                    unsafe fn inner(sse: Sse4_1, a: [u32; 16], b: [u32; 16]) {
+                        let poly = Polyfill::detect().unwrap();
+                        let sa: u32x16 = sse.load(&a);
+                        let sb: u32x16 = sse.load(&b);
+                        let sc = sa.$meth(sb);
+                        let pa: p::u32x16 = poly.load(&a);
+                        let pb: p::u32x16 = poly.load(&b);
+                        let pc = pa.$meth(pb);
+                        assert_eq!(sc.deref(), pc.deref());
+                    }
 
-        #[test]
-        fn sub_u32(a: [u32; 16], b: [u32; 16]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                let sa = sse.load_u32x16(&a);
-                let sb = sse.load_u32x16(&b);
-                let sc = sa - sb;
-                let pa = poly.load_u32x16(&a);
-                let pb = poly.load_u32x16(&b);
-                let pc = pa - pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
-            }
-        }
+                    if let Ok(sse) = Sse4_1::detect() {
+                        unsafe {
+                            inner(sse, a, b);
+                        }
+                    }
+                }
 
-        #[test]
-        fn mul_u32(a: [u32; 16], b: [u32; 16]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u32; 16], b: [u32; 16]) {
-                let sa = sse.load_u32x16(&a);
-                let sb = sse.load_u32x16(&b);
-                let sc = sa * sb;
-                let pa = poly.load_u32x16(&a);
-                let pb = poly.load_u32x16(&b);
-                let pc = pa * pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
+                #[test]
+                fn $t_u16(a: [u16; 8], b: [u16; 8]) {
+                    #[inline]
+                    #[target_feature(enable = "sse2", enable = "sse4.1")]
+                    unsafe fn inner(sse: Sse4_1, a: [u16; 8], b: [u16; 8]) {
+                        let poly = Polyfill::detect().unwrap();
+                        let sa: u16x8 = sse.load(&a);
+                        let sb: u16x8 = sse.load(&b);
+                        let sc = sa.$meth(sb);
+                        let pa: p::u16x8 = poly.load(&a);
+                        let pb: p::u16x8 = poly.load(&b);
+                        let pc = pa.$meth(pb);
+                        assert_eq!(sc.deref(), pc.deref());
+                    }
 
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
-            }
-        }
-
-        #[test]
-        fn add_u16(a: [u16; 8], b: [u16; 8]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                let sa = sse.load_u16x8(&a);
-                let sb = sse.load_u16x8(&b);
-                let sc = sa + sb;
-                let pa = poly.load_u16x8(&a);
-                let pb = poly.load_u16x8(&b);
-                let pc = pa + pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
-            }
-        }
-
-        #[test]
-        fn sub_u16(a: [u16; 8], b: [u16; 8]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                let sa = sse.load_u16x8(&a);
-                let sb = sse.load_u16x8(&b);
-                let sc = sa - sb;
-                let pa = poly.load_u16x8(&a);
-                let pb = poly.load_u16x8(&b);
-                let pc = pa - pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
-            }
-        }
-
-        #[test]
-        fn mul_u16(a: [u16; 8], b: [u16; 8]) {
-            #[inline]
-            #[target_feature(enable = "sse2", enable = "sse4.1")]
-            unsafe fn inner(sse: Sse4_1, poly: Polyfill, a: [u16; 8], b: [u16; 8]) {
-                let sa = sse.load_u16x8(&a);
-                let sb = sse.load_u16x8(&b);
-                let sc = sa * sb;
-                let pa = poly.load_u16x8(&a);
-                let pb = poly.load_u16x8(&b);
-                let pc = pa * pb;
-                assert_eq!(sc.deref(), pc.deref());
-            }
-
-            let sse = Sse4_1::detect().unwrap();
-            let poly = Polyfill::detect().unwrap();
-            unsafe {
-                inner(sse, poly, a, b);
+                    if let Ok(sse) = Sse4_1::detect() {
+                        unsafe {
+                            inner(sse, a, b);
+                        }
+                    }
+                }
             }
         }
     }
+
+    tst!(mul, mul_u16, mul_u32);
+    tst!(add, add_u16, add_u32);
+    tst!(sub, sub_u16, sub_u32);
 }

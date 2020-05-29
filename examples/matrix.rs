@@ -33,8 +33,9 @@ impl Matrix {
             }
             for y in 0..SIZE {
                 let mut result: I::u32x16 = is.splat(0);
-                for (c, r) in column.iter().zip(self.0[y].chunks_exact(16)) {
-                    result += *c * is.load(r);
+                for i in 0..SIZE / 16 {
+                    let pos = i * 16;
+                    result += column[i] * is.load(&self.0[y][pos..pos + 16]);
                 }
 
                 for p in result.iter() {
@@ -81,13 +82,17 @@ fn timed<R, F: FnOnce() -> R>(f: F) -> R {
 fn main() {
     let a = Matrix::random();
     let b = Matrix::random();
+    /*
     let z = timed(|| &a * &b);
     let w = timed(|| a.mult_simd(Polyfill, &b));
+    */
     //assert_eq!(z, w);
+    /*
     if let Ok(sse) = Sse4_1::detect() {
         let w = timed(|| unsafe { mul_sse(sse, &a, &b) });
         //assert_eq!(z, w);
     }
+    */
     if let Ok(avx) = Avx2::detect() {
         let w = timed(|| unsafe { mul_avx(avx, &a, &b) });
         //assert_eq!(z, w);

@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use std::mem::MaybeUninit;
 use core::ptr;
 use core::slice;
 use core::ops::*;
@@ -19,13 +20,18 @@ macro_rules! bin_op_impl {
             type Output = Self;
             #[inline]
             fn $meth(self, rhs: Self) -> Self {
-                let content = self.content.iter()
-                    .zip(rhs.content.iter())
-                    .map(|(a, b)| $tr::$meth(*a, *b))
-                    .collect();
-                Self {
-                    content,
-                    _props: PhantomData,
+                unsafe {
+                    let mut result = MaybeUninit::<GenericArray<R, S>>::uninit();
+                    for i in 0..S::USIZE {
+                        ptr::write(
+                            result.as_mut_ptr().cast::<R>().offset(i as isize),
+                            $tr::$meth(self.content[i], rhs.content[i]),
+                        );
+                    }
+                    Self {
+                        content: result.assume_init(),
+                        _props: PhantomData,
+                    }
                 }
             }
         }
@@ -38,8 +44,8 @@ macro_rules! bin_op_impl {
         {
             #[inline]
             fn $meth_assign(&mut self, rhs: Self) {
-                for (r, s) in self.content.iter_mut().zip(rhs.content.iter()) {
-                    $tr_assign::$meth_assign(r, *s);
+                for i in 0..S::USIZE {
+                    $tr_assign::$meth_assign(&mut self.content[i], rhs.content[i]);
                 }
             }
         }
@@ -57,14 +63,18 @@ macro_rules! una_op_impl {
             type Output = Self;
             #[inline]
             fn $meth(self) -> Self {
-                let content = self.content
-                    .iter()
-                    .copied()
-                    .map($tr::$meth)
-                    .collect();
-                Self {
-                    content,
-                    _props: PhantomData,
+                unsafe {
+                    let mut result = MaybeUninit::<GenericArray<R, S>>::uninit();
+                    for i in 0..S::USIZE {
+                        ptr::write(
+                            result.as_mut_ptr().cast::<R>().offset(i as isize),
+                            $tr::$meth(self.content[i]),
+                        );
+                    }
+                    Self {
+                        content: result.assume_init(),
+                        _props: PhantomData,
+                    }
                 }
             }
         }

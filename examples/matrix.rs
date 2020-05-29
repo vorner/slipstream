@@ -24,9 +24,9 @@ impl Matrix {
     }
 
     #[multiversion]
-    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
         let mut output = [[0u32; SIZE]; SIZE];
         let mut column: [V; SIZE / V::LANES] = [Default::default(); SIZE / V::LANES];

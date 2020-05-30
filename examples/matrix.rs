@@ -10,15 +10,17 @@ use multiversion::multiversion;
 use rand::random;
 
 const SIZE: usize = 512;
-struct Matrix([[u32; SIZE]; SIZE]);
+struct Matrix([[V; SIZE / V::LANES]; SIZE]);
 
 type V = u32x16;
+const L: usize = V::LANES;
 
 impl Matrix {
     fn random() -> Self {
         Self(array_init(|_| {
             array_init(|_| {
-                random()
+                let inner: [u32; 16] = random();
+                V::new(&inner)
             })
         }))
     }
@@ -28,22 +30,25 @@ impl Matrix {
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
-        let mut output = [[0u32; SIZE]; SIZE];
-        let mut column: [V; SIZE / V::LANES] = [Default::default(); SIZE / V::LANES];
+        let mut output = [[V::default(); SIZE / L]; SIZE];
+        let mut column: [V; SIZE / L] = [Default::default(); SIZE / L];
         for x in 0..SIZE {
             // Do we want some kind of gather/stride way to load the vectors?
             // Anyway, as this is likely slower, we make sure to do the columns less often and
             // cache them for each corresponding rows, which load much faster
             for i in 0..SIZE {
-                column[i / V::LANES][i % V::LANES] = rhs.0[i][x];
+                column[i / L][i % L] = rhs.0[i][x / L][x % L];
             }
+
             for y in 0..SIZE {
                 let mut result = V::default();
-                for (c, r) in column.iter().zip(self.0[y].chunks_exact(V::LANES)) {
-                    result += *c * V::new(r);
+                for (c, r) in column.iter().zip(self.0[y].iter()) {
+                    result += *c * *r;
                 }
 
-                output[y][x] = result.iter().sum();
+                for l in result.iter() {
+                    output[y][x / L][x % L] = output[y][x / L][x % L].wrapping_add(*l);
+                }
             }
         }
         Matrix(output)
@@ -53,11 +58,11 @@ impl Matrix {
 impl Mul for &'_ Matrix {
     type Output = Matrix;
     fn mul(self, rhs: &Matrix) -> Matrix {
-        let mut output = [[0u32; SIZE]; SIZE];
+        let mut output = [[V::default(); SIZE / L]; SIZE];
         for x in 0..SIZE {
             for y in 0..SIZE {
                 for z in 0..SIZE {
-                    output[y][x] = output[y][x].wrapping_add(self.0[y][z].wrapping_mul(rhs.0[z][x]));
+                    output[y][x / L][x % L] = output[y][x / L][x % L].wrapping_add(self.0[y][z / L][z % L].wrapping_mul(rhs.0[z][x / L][x % L]));
                 }
             }
         }

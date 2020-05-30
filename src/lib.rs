@@ -19,13 +19,32 @@ pub mod prelude {
 mod inner {
     use core::num::Wrapping;
 
-    pub trait InstructionSet: Sized { }
-
     pub unsafe trait Repr<For>: Copy { }
 
     unsafe impl Repr<u8> for Wrapping<u8> { }
     unsafe impl Repr<u16> for Wrapping<u16> { }
     unsafe impl Repr<u32> for Wrapping<u32> { }
+    unsafe impl Repr<u64> for Wrapping<u64> { }
+    unsafe impl Repr<u128> for Wrapping<u128> { }
+    unsafe impl Repr<u8> for u8 { }
+    unsafe impl Repr<u16> for u16 { }
+    unsafe impl Repr<u32> for u32 { }
+    unsafe impl Repr<u64> for u64 { }
+    unsafe impl Repr<u128> for u128 { }
+
+    unsafe impl Repr<i8> for Wrapping<i8> { }
+    unsafe impl Repr<i16> for Wrapping<i16> { }
+    unsafe impl Repr<i32> for Wrapping<i32> { }
+    unsafe impl Repr<i64> for Wrapping<i64> { }
+    unsafe impl Repr<i128> for Wrapping<i128> { }
+    unsafe impl Repr<i8> for i8 { }
+    unsafe impl Repr<i16> for i16 { }
+    unsafe impl Repr<i32> for i32 { }
+    unsafe impl Repr<i64> for i64 { }
+    unsafe impl Repr<i128> for i128 { }
+
+    unsafe impl Repr<f32> for f32 { }
+    unsafe impl Repr<f64> for f64 { }
 }
 
 #[derive(Debug)]
@@ -75,7 +94,6 @@ where
 pub trait Vector<B>: Deref<Target = [B]> + DerefMut + Sized + 'static {
     type Lanes: ArrayLength<B>;
     const LANES: usize = Self::Lanes::USIZE;
-    // TODO: new_unchecked ‒ aligned, no instruction set checked
     fn new(input: &[B]) -> Self;
 
     #[inline]

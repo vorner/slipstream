@@ -200,4 +200,3 @@ vector_impl!(Packed4, 4);
 vector_impl!(Packed8, 8);
 vector_impl!(Packed16, 16);
 vector_impl!(Packed32, 32);
-vector_impl!(Packed64, 64);

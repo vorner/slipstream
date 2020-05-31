@@ -13,11 +13,15 @@ use test::Bencher;
 const SIZE: usize = 10*1024*1024;
 type V = impatient::f32x16;
 
+fn gen_data() -> Vec<f32> {
+    iter::repeat_with(rand::random)
+        .take(SIZE)
+        .collect()
+}
+
 #[bench]
 fn basic(b: &mut Bencher) {
-    let data: Vec<f32> = iter::repeat_with(rand::random)
-        .take(SIZE)
-        .collect();
+    let data = gen_data();
 
     b.iter(|| {
         test::black_box(data.iter().sum::<f32>());
@@ -80,6 +84,21 @@ fn vectorized_tree(data: &[V]) -> f32 {
     sum_up(&result)
 }
 
+#[multiversion]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[clone(target = "[arm|aarch64]+neon")]
+fn vectorize(data: &[f32]) -> f32 {
+    let mut result = V::default();
+
+    for v in impatient::vectorize_exact(data) {
+        result += v;
+    }
+
+    result.iter().rev().sum()
+}
+
 fn gen_vecs() -> Vec<V> {
     iter::repeat_with(rand::random)
         .map(|v: [f32; V::LANES]| V::new(&v))
@@ -139,6 +158,24 @@ fn vectorized_tree_detect(b: &mut Bencher) {
     b.iter(|| {
         test::black_box(vectorized_tree(&data));
     })
+}
+
+#[bench]
+fn vectorize_default(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_default_version(&data));
+    });
+}
+
+#[bench]
+fn vectorize_detect(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize(&data));
+    });
 }
 
 #[bench]

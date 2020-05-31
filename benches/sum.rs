@@ -1,4 +1,6 @@
 #![feature(test)]
+#![feature(aarch64_target_feature)]
+#![feature(stdsimd)]
 
 extern crate test;
 
@@ -26,6 +28,7 @@ fn basic(b: &mut Bencher) {
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[clone(target = "[arm|aarch64]+neon")]
 fn vectorized(data: &[V]) -> f32 {
     let mut result = V::default();
 
@@ -40,6 +43,7 @@ fn vectorized(data: &[V]) -> f32 {
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[clone(target = "[arm|aarch64]+neon")]
 fn vectorized_rev(data: &[V]) -> f32 {
     let mut result = V::default();
 
@@ -49,6 +53,31 @@ fn vectorized_rev(data: &[V]) -> f32 {
 
     // Any idea why this rev makes it run faster?
     result.iter().rev().sum()
+}
+
+#[multiversion]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[clone(target = "[arm|aarch64]+neon")]
+fn vectorized_tree(data: &[V]) -> f32 {
+    let mut result = V::default();
+
+    for v in data {
+        result += *v;
+    }
+
+    #[inline]
+    fn sum_up(d: &[f32]) -> f32 {
+        if d.len() == 1 {
+            d[0]
+        } else {
+            let mid = d.len() / 2;
+            sum_up(&d[..mid]) + sum_up(&d[mid..])
+        }
+    }
+
+    sum_up(&result)
 }
 
 fn gen_vecs() -> Vec<V> {
@@ -91,6 +120,24 @@ fn vectorized_rev_detect(b: &mut Bencher) {
 
     b.iter(|| {
         test::black_box(vectorized_rev(&data));
+    })
+}
+
+#[bench]
+fn vectorized_tree_default(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_tree_default_version(&data));
+    })
+}
+
+#[bench]
+fn vectorized_tree_detect(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_tree(&data));
     })
 }
 

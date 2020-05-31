@@ -1,5 +1,6 @@
+use core::iter::{Product, Sum};
 use core::marker::PhantomData;
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 use core::ptr;
 use core::slice;
 use core::ops::*;
@@ -177,6 +178,49 @@ macro_rules! vector_impl {
             #[inline]
             fn index_mut(&mut self, idx: usize) -> &mut B {
                 self.deref_mut().index_mut(idx)
+            }
+        }
+
+        impl<B, R, S> Sum for $name<B, R, S>
+        where
+            R: inner::Repr<B> + AddAssign,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+            Self: Default,
+        {
+            #[inline]
+            fn sum<I>(iter: I) -> Self
+            where
+                I: Iterator<Item = Self>,
+            {
+                let mut result = Self::default();
+                for i in iter {
+                    result += i;
+                }
+
+                result
+            }
+        }
+
+        impl<B, R, S> Product for $name<B, R, S>
+        where
+            B: Copy,
+            R: inner::Repr<B> + MulAssign,
+            S: ArrayLength<R>,
+            S::ArrayType: Copy,
+            Self: Vector<B>,
+        {
+            #[inline]
+            fn product<I>(iter: I) -> Self
+            where
+                I: Iterator<Item = Self>,
+            {
+                let mut result = Self::splat(R::ONE);
+                for i in iter {
+                    result *= i;
+                }
+
+                result
             }
         }
 

@@ -99,6 +99,20 @@ fn vectorize(data: &[f32]) -> f32 {
     result.iter().rev().sum()
 }
 
+#[multiversion]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[clone(target = "[arm|aarch64]+neon")]
+fn sum(data: &[V]) -> f32 {
+    data.iter()
+        .copied()
+        .sum::<V>()
+        .iter()
+        .rev()
+        .sum()
+}
+
 fn gen_vecs() -> Vec<V> {
     iter::repeat_with(rand::random)
         .map(|v: [f32; V::LANES]| V::new(&v))
@@ -176,6 +190,24 @@ fn vectorize_detect(b: &mut Bencher) {
     b.iter(|| {
         test::black_box(vectorize(&data));
     });
+}
+
+#[bench]
+fn sum_default(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(sum_default_version(&data));
+    })
+}
+
+#[bench]
+fn sum_detect(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(sum(&data));
+    })
 }
 
 #[bench]

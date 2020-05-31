@@ -36,12 +36,31 @@ fn vectorized(data: &[V]) -> f32 {
     result.iter().sum()
 }
 
+#[multiversion]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+fn vectorized_rev(data: &[V]) -> f32 {
+    let mut result = V::default();
+
+    for v in data {
+        result += *v;
+    }
+
+    // Any idea why this rev makes it run faster?
+    result.iter().rev().sum()
+}
+
+fn gen_vecs() -> Vec<V> {
+    iter::repeat_with(rand::random)
+        .map(|v: [f32; V::LANES]| V::new(&v))
+        .take(SIZE / V::LANES)
+        .collect()
+}
+
 #[bench]
 fn vectorized_default(b: &mut Bencher) {
-    let data: Vec<V> = iter::repeat_with(rand::random)
-        .take(SIZE / V::LANES)
-        .map(|v: [f32; V::LANES]| V::new(&v))
-        .collect();
+    let data = gen_vecs();
 
     b.iter(|| {
         test::black_box(vectorized_default_version(&data));
@@ -50,13 +69,28 @@ fn vectorized_default(b: &mut Bencher) {
 
 #[bench]
 fn vectorized_detect(b: &mut Bencher) {
-    let data: Vec<V> = iter::repeat_with(rand::random)
-        .take(SIZE / V::LANES)
-        .map(|v: [f32; V::LANES]| V::new(&v))
-        .collect();
+    let data = gen_vecs();
 
     b.iter(|| {
         test::black_box(vectorized(&data));
+    })
+}
+
+#[bench]
+fn vectorized_rev_default(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_rev_default_version(&data));
+    })
+}
+
+#[bench]
+fn vectorized_rev_detect(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_rev(&data));
     })
 }
 

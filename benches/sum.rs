@@ -1,26 +1,11 @@
-#![feature(test)]
-#![feature(aarch64_target_feature)]
-#![feature(stdsimd)]
-#![allow(unused_braces)] // The lint comes from somewhere inside macros, no idea why :-(
-
-extern crate test;
-
 use std::iter;
 
 use impatient::prelude::*;
 use multiversion::multiversion;
 use test::Bencher;
 
-mod utils;
-
-const SIZE: usize = 10*1024*1024;
-type V = impatient::f32x16;
-
-fn gen_data() -> Vec<f32> {
-    iter::repeat_with(rand::random)
-        .take(SIZE)
-        .collect()
-}
+use crate::mv;
+use crate::utils::{gen_data, gen_vecs, gen_arch_vecs, V, SIZE};
 
 #[bench]
 fn basic(b: &mut Bencher) {
@@ -99,13 +84,6 @@ mv! {
             .rev()
             .sum()
     }
-}
-
-fn gen_vecs() -> Vec<V> {
-    iter::repeat_with(rand::random)
-        .map(|v: [f32; V::LANES]| V::new(&v))
-        .take(SIZE / V::LANES)
-        .collect()
 }
 
 #[bench]
@@ -220,18 +198,10 @@ fn sum_detect(b: &mut Bencher) {
 #[bench]
 #[cfg(target_arch = "x86_64")]
 fn vectorized_manual_sse(b: &mut Bencher) {
-    use core::arch::x86_64::{self as arch, __m128};
+    use core::arch::x86_64 as arch;
     use core::mem;
 
-    let data: Vec<__m128>;
-    unsafe {
-        data = iter::repeat_with(|| {
-                let v: [f32; 4] = rand::random();
-                arch::_mm_loadu_ps(v.as_ptr())
-            })
-            .take(SIZE / 4)
-            .collect();
-    }
+    let data = gen_arch_vecs();
 
     b.iter(|| {
         unsafe {

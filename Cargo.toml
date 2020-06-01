@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["simd", "performance"]
 categories = ["hardware-support"]
 license = "Apache-2.0 OR MIT"
+autobenches = false
 
 [dependencies]
 generic-array = "~0.14"
@@ -19,6 +20,10 @@ array-init = "~0.1"
 multiversion = "~0.5"
 proptest = "~0.9"
 rand = "~0.7"
+
+[[bench]]
+name = "simple"
+path = "benches/simple.rs"
 
 [profile.release]
 debug = 2

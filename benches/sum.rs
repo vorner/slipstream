@@ -1,6 +1,7 @@
 #![feature(test)]
 #![feature(aarch64_target_feature)]
 #![feature(stdsimd)]
+#![allow(unused_braces)] // The lint comes from somewhere inside macros, no idea why :-(
 
 extern crate test;
 
@@ -9,6 +10,8 @@ use std::iter;
 use impatient::prelude::*;
 use multiversion::multiversion;
 use test::Bencher;
+
+mod utils;
 
 const SIZE: usize = 10*1024*1024;
 type V = impatient::f32x16;
@@ -28,102 +31,74 @@ fn basic(b: &mut Bencher) {
     })
 }
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn vectorized(data: &[V]) -> f32 {
-    let mut result = V::default();
+mv! {
+    fn vectorized(data: &[V]) -> f32 {
+        let mut result = V::default();
 
-    for v in data {
-        result += *v;
-    }
-
-    result.iter().sum()
-}
-
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn vectorized_rev(data: &[V]) -> f32 {
-    let mut result = V::default();
-
-    for v in data {
-        result += *v;
-    }
-
-    // Any idea why this rev makes it run faster?
-    result.iter().rev().sum()
-}
-
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn vectorized_tree(data: &[V]) -> f32 {
-    let mut result = V::default();
-
-    for v in data {
-        result += *v;
-    }
-
-    #[inline]
-    fn sum_up(d: &[f32]) -> f32 {
-        if d.len() == 1 {
-            d[0]
-        } else {
-            let mid = d.len() / 2;
-            sum_up(&d[..mid]) + sum_up(&d[mid..])
+        for v in data {
+            result += *v;
         }
+
+        result.iter().sum()
     }
 
-    sum_up(&result)
-}
+    fn vectorized_rev(data: &[V]) -> f32 {
+        let mut result = V::default();
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn vectorize(data: &[f32]) -> f32 {
-    let mut result = V::default();
+        for v in data {
+            result += *v;
+        }
 
-    for v in impatient::vectorize_exact(data) {
-        result += v;
+        // Any idea why this rev makes it run faster?
+        result.iter().rev().sum()
     }
 
-    result.iter().rev().sum()
-}
+    fn vectorized_tree(data: &[V]) -> f32 {
+        let mut result = V::default();
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn sum(data: &[V]) -> f32 {
-    data.iter()
-        .copied()
-        .sum::<V>()
-        .iter()
-        .rev()
-        .sum()
-}
+        for v in data {
+            result += *v;
+        }
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
-fn sum_vectorize(data: &[f32]) -> f32 {
-    impatient::vectorize_exact(data)
-        .sum::<V>()
-        .iter()
-        .rev()
-        .sum()
+        #[inline]
+        fn sum_up(d: &[f32]) -> f32 {
+            if d.len() == 1 {
+                d[0]
+            } else {
+                let mid = d.len() / 2;
+                sum_up(&d[..mid]) + sum_up(&d[mid..])
+            }
+        }
+
+        sum_up(&result)
+    }
+
+    fn vectorize(data: &[f32]) -> f32 {
+        let mut result = V::default();
+
+        for v in impatient::vectorize_exact(data) {
+            result += v;
+        }
+
+        result.iter().rev().sum()
+    }
+
+    fn sum(data: &[V]) -> f32 {
+        data.iter()
+            .copied()
+            .sum::<V>()
+            .iter()
+            .rev()
+            .sum()
+    }
+
+    fn sum_vectorize(data: &[f32]) -> f32 {
+        impatient::vectorize_exact(data)
+            .sum::<V>()
+            .iter()
+            .rev()
+            .sum()
+    }
 }
 
 fn gen_vecs() -> Vec<V> {

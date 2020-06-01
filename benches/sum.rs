@@ -1,6 +1,3 @@
-use std::iter;
-
-use impatient::prelude::*;
 use multiversion::multiversion;
 use test::Bencher;
 

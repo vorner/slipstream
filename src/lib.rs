@@ -20,88 +20,88 @@ pub mod prelude {
 mod inner {
     use core::num::Wrapping;
 
-    pub unsafe trait Repr<For>: Copy {
-        const ONE: For;
+    pub unsafe trait Repr: Copy {
+        const ONE: Self;
     }
 
-    unsafe impl Repr<u8> for Wrapping<u8> {
+    unsafe impl Repr for Wrapping<u8> {
+        const ONE: Wrapping<u8> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<u16> {
+        const ONE: Wrapping<u16> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<u32> {
+        const ONE: Wrapping<u32> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<u64> {
+        const ONE: Wrapping<u64> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<u128> {
+        const ONE: Wrapping<u128> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<usize> {
+        const ONE: Wrapping<usize> = Wrapping(1);
+    }
+    unsafe impl Repr for u8 {
         const ONE: u8 = 1;
     }
-    unsafe impl Repr<u16> for Wrapping<u16> {
+    unsafe impl Repr for u16 {
         const ONE: u16 = 1;
     }
-    unsafe impl Repr<u32> for Wrapping<u32> {
+    unsafe impl Repr for u32 {
         const ONE: u32 = 1;
     }
-    unsafe impl Repr<u64> for Wrapping<u64> {
+    unsafe impl Repr for u64 {
         const ONE: u64 = 1;
     }
-    unsafe impl Repr<u128> for Wrapping<u128> {
+    unsafe impl Repr for u128 {
         const ONE: u128 = 1;
     }
-    unsafe impl Repr<usize> for Wrapping<usize> {
-        const ONE: usize = 1;
-    }
-    unsafe impl Repr<u8> for u8 {
-        const ONE: u8 = 1;
-    }
-    unsafe impl Repr<u16> for u16 {
-        const ONE: u16 = 1;
-    }
-    unsafe impl Repr<u32> for u32 {
-        const ONE: u32 = 1;
-    }
-    unsafe impl Repr<u64> for u64 {
-        const ONE: u64 = 1;
-    }
-    unsafe impl Repr<u128> for u128 {
-        const ONE: u128 = 1;
-    }
-    unsafe impl Repr<usize> for usize {
+    unsafe impl Repr for usize {
         const ONE: usize = 1;
     }
 
-    unsafe impl Repr<i8> for Wrapping<i8> {
+    unsafe impl Repr for Wrapping<i8> {
+        const ONE: Wrapping<i8> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<i16> {
+        const ONE: Wrapping<i16> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<i32> {
+        const ONE: Wrapping<i32> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<i64> {
+        const ONE: Wrapping<i64> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<i128> {
+        const ONE: Wrapping<i128> = Wrapping(1);
+    }
+    unsafe impl Repr for Wrapping<isize> {
+        const ONE: Wrapping<isize> = Wrapping(1);
+    }
+    unsafe impl Repr for i8 {
         const ONE: i8 = 1;
     }
-    unsafe impl Repr<i16> for Wrapping<i16> {
+    unsafe impl Repr for i16 {
         const ONE: i16 = 1;
     }
-    unsafe impl Repr<i32> for Wrapping<i32> {
+    unsafe impl Repr for i32 {
         const ONE: i32 = 1;
     }
-    unsafe impl Repr<i64> for Wrapping<i64> {
+    unsafe impl Repr for i64 {
         const ONE: i64 = 1;
     }
-    unsafe impl Repr<i128> for Wrapping<i128> {
+    unsafe impl Repr for i128 {
         const ONE: i128 = 1;
     }
-    unsafe impl Repr<isize> for Wrapping<isize> {
-        const ONE: isize = 1;
-    }
-    unsafe impl Repr<i8> for i8 {
-        const ONE: i8 = 1;
-    }
-    unsafe impl Repr<i16> for i16 {
-        const ONE: i16 = 1;
-    }
-    unsafe impl Repr<i32> for i32 {
-        const ONE: i32 = 1;
-    }
-    unsafe impl Repr<i64> for i64 {
-        const ONE: i64 = 1;
-    }
-    unsafe impl Repr<i128> for i128 {
-        const ONE: i128 = 1;
-    }
-    unsafe impl Repr<isize> for isize {
+    unsafe impl Repr for isize {
         const ONE: isize = 1;
     }
 
-    unsafe impl Repr<f32> for f32 {
+    unsafe impl Repr for f32 {
         const ONE: f32 = 1.0;
     }
-    unsafe impl Repr<f64> for f64 {
+    unsafe impl Repr for f64 {
         const ONE: f64 = 1.0;
     }
 }

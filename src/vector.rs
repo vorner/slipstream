@@ -1,8 +1,6 @@
 use core::iter::{Product, Sum};
-use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ptr;
-use core::slice;
 use core::ops::*;
 
 use generic_array::{ArrayLength, GenericArray};
@@ -12,35 +10,34 @@ use crate::{inner, Vector};
 
 macro_rules! bin_op_impl {
     ($name: ident, $tr: ident, $meth: ident, $tr_assign: ident, $meth_assign: ident) => {
-        impl<B, R, S> $tr for $name<B, R, S>
+        impl<B, S> $tr for $name<B, S>
         where
-            R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: ArrayLength<R>,
+            B: inner::Repr + $tr<Output = B> + Copy,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             type Output = Self;
             #[inline]
             fn $meth(self, rhs: Self) -> Self {
                 unsafe {
-                    let mut result = MaybeUninit::<GenericArray<R, S>>::uninit();
+                    let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                     for i in 0..S::USIZE {
                         ptr::write(
-                            result.as_mut_ptr().cast::<R>().offset(i as isize),
+                            result.as_mut_ptr().cast::<B>().offset(i as isize),
                             $tr::$meth(self.content[i], rhs.content[i]),
                         );
                     }
                     Self {
                         content: result.assume_init(),
-                        _props: PhantomData,
                     }
                 }
             }
         }
 
-        impl<B, R, S> $tr_assign for $name<B, R, S>
+        impl<B, S> $tr_assign for $name<B, S>
         where
-            R: inner::Repr<B> + $tr_assign + Copy,
-            S: ArrayLength<R>,
+            B: inner::Repr + $tr_assign + Copy,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             #[inline]
@@ -55,26 +52,25 @@ macro_rules! bin_op_impl {
 
 macro_rules! una_op_impl {
     ($name: ident, $tr: ident, $meth: ident) => {
-        impl<B, R, S> $tr for $name<B, R, S>
+        impl<B, S> $tr for $name<B, S>
         where
-            R: inner::Repr<B> + $tr<Output = R> + Copy,
-            S: Unsigned + ArrayLength<R>,
+            B: inner::Repr + $tr<Output = B> + Copy,
+            S: Unsigned + ArrayLength<B>,
             S::ArrayType: Copy,
         {
             type Output = Self;
             #[inline]
             fn $meth(self) -> Self {
                 unsafe {
-                    let mut result = MaybeUninit::<GenericArray<R, S>>::uninit();
+                    let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                     for i in 0..S::USIZE {
                         ptr::write(
-                            result.as_mut_ptr().cast::<R>().offset(i as isize),
+                            result.as_mut_ptr().cast::<B>().offset(i as isize),
                             $tr::$meth(self.content[i]),
                         );
                     }
                     Self {
                         content: result.assume_init(),
-                        _props: PhantomData,
                     }
                 }
             }
@@ -86,22 +82,20 @@ macro_rules! vector_impl {
     ($name: ident, $align: expr) => {
         #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
         #[repr(C, align($align))]
-        pub struct $name<B, R, S>
+        pub struct $name<B, S>
         where
-            R: inner::Repr<B>,
-            S: ArrayLength<R>,
+            B: inner::Repr,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
-            content: GenericArray<R, S>,
-            _props: PhantomData<B>,
+            content: GenericArray<B, S>,
         }
 
-        impl<B, R, S> Vector<B> for $name<B, R, S>
+        impl<B, S> Vector<B> for $name<B, S>
         where
-            B: 'static,
-            R: inner::Repr<B> + 'static,
-            S: ArrayLength<R> + ArrayLength<B> + 'static,
-            <S as ArrayLength<R>>::ArrayType: Copy,
+            B: inner::Repr + 'static,
+            S: ArrayLength<B> + 'static,
+            S::ArrayType: Copy,
         {
             type Lanes = S;
             #[inline]
@@ -109,82 +103,69 @@ macro_rules! vector_impl {
                 assert_eq!(
                     input.len(),
                     S::USIZE,
-                    "Creating vector from the wrong sized slice",
+                    "Creating vector from the wrong sized slice (expected {}, got {})",
+                    S::USIZE, input.len(),
                 );
-                unsafe {
-                    let content = ptr::read(input.as_ptr().cast());
-                    Self {
-                        content,
-                        _props: PhantomData,
-                    }
+                Self {
+                    content: unsafe { ptr::read(input.as_ptr().cast()) },
                 }
             }
         }
 
-        impl<B, R, S> Deref for $name<B, R, S>
+        impl<B, S> Deref for $name<B, S>
         where
-            R: inner::Repr<B>,
-            S: ArrayLength<R>,
+            B: inner::Repr,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             type Target = [B];
             #[inline]
             fn deref(&self) -> &[B] {
-                unsafe {
-                    slice::from_raw_parts(
-                        self.content.as_ptr().cast(),
-                        S::USIZE,
-                    )
-                }
+                &self.content
             }
         }
 
-        impl<B, R, S> DerefMut for $name<B, R, S>
+        impl<B, S> DerefMut for $name<B, S>
         where
-            R: inner::Repr<B>,
-            S: ArrayLength<R>,
+            B: inner::Repr,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             #[inline]
             fn deref_mut(&mut self) -> &mut [B] {
-                unsafe {
-                    slice::from_raw_parts_mut(
-                        self.content.as_mut_ptr().cast(),
-                        S::USIZE,
-                    )
-                }
+                &mut self.content
             }
         }
 
-        impl<B, R, S> Index<usize> for $name<B, R, S>
+        impl<B, S> Index<usize> for $name<B, S>
         where
-            R: inner::Repr<B>,
-            S: ArrayLength<R>,
+            B: inner::Repr,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             type Output = B;
             #[inline]
             fn index(&self, idx: usize) -> &B {
-                self.deref().index(idx)
+                &self.content[idx]
             }
         }
 
-        impl<B, R, S> IndexMut<usize> for $name<B, R, S>
+        impl<B, S> IndexMut<usize> for $name<B, S>
         where
-            R: inner::Repr<B>,
-            S: ArrayLength<R>,
+            B: inner::Repr,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
         {
             #[inline]
             fn index_mut(&mut self, idx: usize) -> &mut B {
-                self.deref_mut().index_mut(idx)
+                &mut self.content[idx]
             }
         }
 
-        impl<B, R, S> Sum for $name<B, R, S>
+        impl<B, S> Sum for $name<B, S>
         where
-            R: inner::Repr<B> + AddAssign,
-            S: ArrayLength<R>,
+            B: inner::Repr + AddAssign,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
             Self: Default,
         {
@@ -202,11 +183,10 @@ macro_rules! vector_impl {
             }
         }
 
-        impl<B, R, S> Product for $name<B, R, S>
+        impl<B, S> Product for $name<B, S>
         where
-            B: Copy,
-            R: inner::Repr<B> + MulAssign,
-            S: ArrayLength<R>,
+            B: Copy + inner::Repr + MulAssign,
+            S: ArrayLength<B>,
             S::ArrayType: Copy,
             Self: Vector<B>,
         {
@@ -215,7 +195,7 @@ macro_rules! vector_impl {
             where
                 I: Iterator<Item = Self>,
             {
-                let mut result = Self::splat(R::ONE);
+                let mut result = Self::splat(B::ONE);
                 for i in iter {
                     result *= i;
                 }
@@ -244,3 +224,18 @@ vector_impl!(Packed4, 4);
 vector_impl!(Packed8, 8);
 vector_impl!(Packed16, 16);
 vector_impl!(Packed32, 32);
+
+#[cfg(test)]
+mod tests {
+    use typenum::consts::*;
+
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "Creating vector from the wrong sized slice (expected 4, got 3)")]
+    fn wrong_size_new() {
+        type V = Packed2<u16, U4>;
+
+        V::new(&[1, 2, 3]);
+    }
+}

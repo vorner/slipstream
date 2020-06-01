@@ -1,6 +1,7 @@
 #![feature(test)]
 extern crate test;
 
+use std::num::Wrapping;
 use std::ops::Mul;
 use std::time::Instant;
 
@@ -19,7 +20,7 @@ impl Matrix {
     fn random() -> Self {
         Self(array_init(|_| {
             array_init(|_| {
-                let inner: [u32; 16] = random();
+                let inner: [Wrapping<u32>; 16] = random();
                 V::new(&inner)
             })
         }))
@@ -47,7 +48,7 @@ impl Matrix {
                 }
 
                 for l in result.iter() {
-                    output[y][x / L][x % L] = output[y][x / L][x % L].wrapping_add(*l);
+                    output[y][x / L][x % L] += *l;
                 }
             }
         }
@@ -62,7 +63,7 @@ impl Mul for &'_ Matrix {
         for x in 0..SIZE {
             for y in 0..SIZE {
                 for z in 0..SIZE {
-                    output[y][x / L][x % L] = output[y][x / L][x % L].wrapping_add(self.0[y][z / L][z % L].wrapping_mul(rhs.0[z][x / L][x % L]));
+                    output[y][x / L][x % L] += self.0[y][z / L][z % L] * rhs.0[z][x / L][x % L];
                 }
             }
         }

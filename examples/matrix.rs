@@ -12,7 +12,7 @@ use rand::random;
 const SIZE: usize = 512;
 struct Matrix([[V; SIZE / V::LANES]; SIZE]);
 
-type V = u32x16;
+type V = wu32x16;
 const L: usize = V::LANES;
 
 impl Matrix {

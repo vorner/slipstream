@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![cfg_attr(not(test), no_std)]
 
 use core::iter;
 use core::ops::*;
@@ -38,6 +39,9 @@ mod inner {
     unsafe impl Repr<u128> for Wrapping<u128> {
         const ONE: u128 = 1;
     }
+    unsafe impl Repr<usize> for Wrapping<usize> {
+        const ONE: usize = 1;
+    }
     unsafe impl Repr<u8> for u8 {
         const ONE: u8 = 1;
     }
@@ -52,6 +56,9 @@ mod inner {
     }
     unsafe impl Repr<u128> for u128 {
         const ONE: u128 = 1;
+    }
+    unsafe impl Repr<usize> for usize {
+        const ONE: usize = 1;
     }
 
     unsafe impl Repr<i8> for Wrapping<i8> {
@@ -69,6 +76,9 @@ mod inner {
     unsafe impl Repr<i128> for Wrapping<i128> {
         const ONE: i128 = 1;
     }
+    unsafe impl Repr<isize> for Wrapping<isize> {
+        const ONE: isize = 1;
+    }
     unsafe impl Repr<i8> for i8 {
         const ONE: i8 = 1;
     }
@@ -83,6 +93,9 @@ mod inner {
     }
     unsafe impl Repr<i128> for i128 {
         const ONE: i128 = 1;
+    }
+    unsafe impl Repr<isize> for isize {
+        const ONE: isize = 1;
     }
 
     unsafe impl Repr<f32> for f32 {

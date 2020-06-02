@@ -47,9 +47,7 @@ impl Matrix {
                     result += *c * *r;
                 }
 
-                for l in result.iter() {
-                    output[y][x / L][x % L] += *l;
-                }
+                output[y][x / L][x % L] = result.horizontal_sum();
             }
         }
         Matrix(output)

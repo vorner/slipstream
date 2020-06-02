@@ -1,8 +1,10 @@
 use multiversion::multiversion;
 use test::Bencher;
 
+use impatient::Vector;
+
 use crate::mv;
-use crate::utils::{gen_data, gen_vecs, gen_arch_vecs, V, SIZE};
+use crate::utils::{gen_data, gen_vecs, gen_arch_vecs, V};
 
 #[bench]
 fn basic(b: &mut Bencher) {
@@ -35,6 +37,16 @@ mv! {
         result.iter().rev().sum()
     }
 
+    fn vectorized_horizontal(data: &[V]) -> f32 {
+        let mut result = V::default();
+
+        for v in data {
+            result += *v;
+        }
+
+        result.horizontal_sum()
+    }
+
     fn vectorized_tree(data: &[V]) -> f32 {
         let mut result = V::default();
 
@@ -65,21 +77,27 @@ mv! {
         result.iter().rev().sum()
     }
 
+    fn vectorize_horizontal(data: &[f32]) -> f32 {
+        let mut result = V::default();
+
+        for v in impatient::vectorize_exact(data) {
+            result += v;
+        }
+
+        result.horizontal_sum()
+    }
+
     fn sum(data: &[V]) -> f32 {
         data.iter()
             .copied()
             .sum::<V>()
-            .iter()
-            .rev()
-            .sum()
+            .horizontal_sum()
     }
 
     fn sum_vectorize(data: &[f32]) -> f32 {
         impatient::vectorize_exact(data)
             .sum::<V>()
-            .iter()
-            .rev()
-            .sum()
+            .horizontal_sum()
     }
 }
 
@@ -156,6 +174,24 @@ fn vectorize_detect(b: &mut Bencher) {
 }
 
 #[bench]
+fn vectorize_horizontal_default(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_horizontal_default_version(&data));
+    });
+}
+
+#[bench]
+fn vectorize_horizontal_detect(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_horizontal(&data));
+    });
+}
+
+#[bench]
 fn sum_vectorize_default(b: &mut Bencher) {
     let data = gen_data();
 
@@ -191,6 +227,25 @@ fn sum_detect(b: &mut Bencher) {
         test::black_box(sum(&data));
     })
 }
+
+#[bench]
+fn vectorized_horizontal_default(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_horizontal_default_version(&data));
+    })
+}
+
+#[bench]
+fn vectorized_horizontal_detect(b: &mut Bencher) {
+    let data = gen_vecs();
+
+    b.iter(|| {
+        test::black_box(vectorized_horizontal(&data));
+    })
+}
+
 
 #[bench]
 #[cfg(target_arch = "x86_64")]

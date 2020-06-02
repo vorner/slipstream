@@ -93,7 +93,7 @@ macro_rules! vector_impl {
 
         impl<B, S> Vector<B> for $name<B, S>
         where
-            B: inner::Repr + 'static,
+            B: inner::Repr + Add<Output = B> + Mul<Output = B> + 'static,
             S: ArrayLength<B> + 'static,
             S::ArrayType: Copy,
         {
@@ -109,6 +109,34 @@ macro_rules! vector_impl {
                 Self {
                     content: unsafe { ptr::read(input.as_ptr().cast()) },
                 }
+            }
+
+            #[inline]
+            fn horizontal_sum(self) -> B {
+                #[inline(always)]
+                fn inner<B: Copy + Add<Output = B>>(d: &[B]) -> B {
+                    if d.len() == 1 {
+                        d[0]
+                    } else {
+                        let mid = d.len() / 2;
+                        inner(&d[..mid]) + inner(&d[mid..])
+                    }
+                }
+                inner(&self.content)
+            }
+
+            #[inline]
+            fn horizontal_product(self) -> B {
+                #[inline(always)]
+                fn inner<B: Copy + Mul<Output = B>>(d: &[B]) -> B {
+                    if d.len() == 1 {
+                        d[0]
+                    } else {
+                        let mid = d.len() / 2;
+                        inner(&d[..mid]) * inner(&d[mid..])
+                    }
+                }
+                inner(&self.content)
             }
         }
 

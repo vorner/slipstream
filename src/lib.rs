@@ -165,6 +165,9 @@ pub trait Vector<B>: Deref<Target = [B]> + DerefMut + Sized + 'static {
             .collect::<GenericArray<B, Self::Lanes>>();
         Self::new(&input)
     }
+
+    fn horizontal_sum(self) -> B;
+    fn horizontal_product(self) -> B;
 }
 
 #[inline]

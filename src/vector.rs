@@ -1,5 +1,5 @@
 use core::iter::{Product, Sum};
-use core::mem::MaybeUninit;
+use core::mem::{self, MaybeUninit};
 use core::ptr;
 use core::ops::*;
 
@@ -99,15 +99,34 @@ macro_rules! vector_impl {
         {
             type Lanes = S;
             #[inline]
-            fn new(input: &[B]) -> Self {
-                assert_eq!(
-                    input.len(),
-                    S::USIZE,
-                    "Creating vector from the wrong sized slice (expected {}, got {})",
-                    S::USIZE, input.len(),
+            unsafe fn new_unchecked(input: *const B) -> Self {
+                assert!(
+                    isize::MAX as usize > mem::size_of::<Self>(),
+                    "Vector type too huge",
                 );
+
                 Self {
-                    content: unsafe { ptr::read(input.as_ptr().cast()) },
+                    content: ptr::read(input.cast()),
+                }
+            }
+
+            #[inline]
+            fn splat(value: B) -> Self
+            where
+                B: Clone
+            {
+                assert!(
+                    isize::MAX as usize > mem::size_of::<Self>(),
+                    "Vector type too huge",
+                );
+                let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
+                unsafe {
+                    for i in 0..S::USIZE {
+                        ptr::write(result.as_mut_ptr().cast::<B>().offset(i as isize), value);
+                    }
+                    Self {
+                        content: result.assume_init(),
+                    }
                 }
             }
 

@@ -2,18 +2,42 @@ use multiversion::multiversion;
 use test::Bencher;
 
 use crate::mv;
-use crate::utils::{gen_arch_vecs, gen_data, gen_vecs, V};
+use crate::utils::{gen_data, gen_vecs, V};
+use impatient::prelude::*;
 
 mv! {
+    fn vectorized_idx(l: &[V], r: &[V]) -> f32 {
+        assert_eq!(l.len(), r.len());
+        let mut result = V::default();
+        for i in 0..l.len() {
+            result += l[i] * r[i];
+        }
+
+        result.horizontal_sum()
+    }
+
     fn vectorized(l: &[V], r: &[V]) -> f32 {
         l.iter()
             .zip(r.iter())
             .map(|(&l, &r)| l * r)
             .sum::<V>()
-            // TODO: Horizontal sum
-            .iter()
-            .rev()
-            .sum()
+            .horizontal_sum()
+    }
+
+    fn vectorize_zip(l: &[f32], r: &[f32]) -> f32 {
+        let l = l.vectorize();
+        let r = r.vectorize();
+        l.zip(r)
+            .map(|(l, r): (V, V)| l * r)
+            .sum::<V>()
+            .horizontal_sum()
+    }
+
+    fn vectorize_tuple(l: &[f32], r: &[f32]) -> f32 {
+        (l, r).vectorize()
+            .map(|(l, r): (V, V)| l * r)
+            .sum::<V>()
+            .horizontal_sum()
     }
 }
 
@@ -52,10 +76,66 @@ fn vectorized_detect(b: &mut Bencher) {
 }
 
 #[bench]
+fn vectorized_idx_default(b: &mut Bencher) {
+    let l = gen_vecs();
+    let r = gen_vecs();
+    b.iter(|| {
+        test::black_box(vectorized_idx_default_version(&l, &r));
+    });
+}
+
+#[bench]
+fn vectorized_idx_detect(b: &mut Bencher) {
+    let l = gen_vecs();
+    let r = gen_vecs();
+    b.iter(|| {
+        test::black_box(vectorized_idx(&l, &r));
+    });
+}
+
+#[bench]
+fn vectorize_zip_default(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_zip_default_version(&l, &r));
+    });
+}
+
+#[bench]
+fn vectorize_zip_detect(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_zip(&l, &r));
+    });
+}
+
+#[bench]
+fn vectorize_tuple_default(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_tuple_default_version(&l, &r));
+    });
+}
+
+#[bench]
+fn vectorize_tuple_detect(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_tuple(&l, &r));
+    });
+}
+
+#[bench]
 #[cfg(target_arch = "x86_64")]
 fn manual_sse(b: &mut Bencher) {
     use core::arch::x86_64 as arch;
     use std::mem;
+
+    use crate::utils::gen_arch_vecs;
 
     let l = gen_arch_vecs();
     let r = gen_arch_vecs();

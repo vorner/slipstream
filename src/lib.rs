@@ -1,10 +1,12 @@
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
 
-use core::iter;
+use core::marker::PhantomData;
+use core::mem;
 use core::ops::*;
+use core::slice;
 
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::ArrayLength;
 use typenum::marker_traits::Unsigned;
 
 pub mod vector;
@@ -14,6 +16,7 @@ pub use types::*;
 
 pub mod prelude {
     pub use crate::Vector;
+    pub use crate::Vectorizable;
     pub use crate::types::*;
 }
 
@@ -107,7 +110,7 @@ mod inner {
 }
 
 #[derive(Debug)]
-struct MutProxy<'a, V, B>
+pub struct MutProxy<'a, B, V>
 where
     V: Deref<Target = [B]>,
     B: Copy,
@@ -116,7 +119,7 @@ where
     restore: &'a mut [B],
 }
 
-impl<V, B> Deref for MutProxy<'_, V, B>
+impl<B, V> Deref for MutProxy<'_, B, V>
 where
     V: Deref<Target = [B]>,
     B: Copy,
@@ -128,7 +131,7 @@ where
     }
 }
 
-impl<V, B> DerefMut for MutProxy<'_, V, B>
+impl<B, V> DerefMut for MutProxy<'_, B, V>
 where
     V: Deref<Target = [B]>,
     B: Copy,
@@ -139,7 +142,7 @@ where
     }
 }
 
-impl<V, B> Drop for MutProxy<'_, V, B>
+impl<B, V> Drop for MutProxy<'_, B, V>
 where
     V: Deref<Target = [B]>,
     B: Copy,
@@ -153,105 +156,290 @@ where
 pub trait Vector<B>: Deref<Target = [B]> + DerefMut + Sized + 'static {
     type Lanes: ArrayLength<B>;
     const LANES: usize = Self::Lanes::USIZE;
-    fn new(input: &[B]) -> Self;
+    unsafe fn new_unchecked(input: *const B) -> Self;
 
     #[inline]
+    fn new(input: &[B]) -> Self {
+        assert_eq!(
+            input.len(),
+            Self::LANES,
+            "Creating vector from the wrong sized slice (expected {}, got {})",
+            Self::LANES, input.len(),
+        );
+        unsafe { Self::new_unchecked(input.as_ptr()) }
+    }
+
     fn splat(value: B) -> Self
     where
-        B: Copy,
-    {
-        let input = iter::repeat(value)
-            .take(Self::LANES)
-            .collect::<GenericArray<B, Self::Lanes>>();
-        Self::new(&input)
-    }
+        B: Copy;
 
     fn horizontal_sum(self) -> B;
     fn horizontal_product(self) -> B;
 }
 
-#[inline]
-pub fn vectorize<'a, V, B>(data: &'a [B], mut empty: V) -> impl Iterator<Item = V> + 'a
-where
-    B: Copy,
-    V: Vector<B> + Default,
-{
-    let chunks = data.chunks_exact(V::LANES);
-    let last = chunks.remainder();
-    let last = if last.is_empty() {
+// TODO: Hide away inside inner
+pub trait Partial<V> {
+    fn take_partial(&mut self) -> Option<V>;
+    fn size(&self) -> usize;
+}
+
+impl<V> Partial<V> for () {
+    #[inline]
+    fn take_partial(&mut self) -> Option<V> {
         None
-    } else {
-        empty[0..last.len()].copy_from_slice(last);
-        Some(empty)
-    };
-    chunks.map(V::new).chain(last)
+    }
+    #[inline]
+    fn size(&self) -> usize {
+        0
+    }
 }
 
-#[inline]
-pub fn vectorize_exact<'a, V, B>(data: &'a [B]) -> impl Iterator<Item = V> + 'a
-where
-    B: Copy,
-    V: Vector<B> + Default,
-{
-    assert!(
-        data.len() % V::LANES == 0,
-        "Data to vectorize_exact must be divisible by number of lanes ({} % {})",
-        data.len(), V::LANES,
-    );
-    data.chunks_exact(V::LANES).map(V::new)
+impl<V> Partial<V> for Option<V> {
+    #[inline]
+    fn take_partial(&mut self) -> Option<V> {
+        Option::take(self)
+    }
+    fn size(&self) -> usize {
+        self.is_some() as usize
+    }
+}
+// TODO: Hide away
+pub trait Vectorizer<R> {
+    // Safety:
+    // idx in range
+    // will be called at most once for each idx
+    unsafe fn get(&self, idx: usize) -> R;
 }
 
-#[inline]
-pub fn vectorize_mut<'a, V, B>(mut data: &'a mut [B], mut empty: V)
-    -> impl Iterator<Item = impl DerefMut<Target = V> + 'a> + 'a
+#[derive(Copy, Clone, Debug)]
+pub struct VectorizedIter<V, P, R> {
+    partial: P,
+    vectorizer: V,
+    left: usize,
+    right: usize,
+    _result: PhantomData<R>,
+}
+
+impl<V, P, R> Iterator for VectorizedIter<V, P, R>
 where
-    B: Copy,
-    V: Vector<B> + Default,
+    V: Vectorizer<R>,
+    P: Partial<R>,
 {
-    let rem = data.len() % V::LANES;
-    let mut last = None;
-    if rem > 0 {
-        let (d, r) = data.split_at_mut(data.len() - rem);
-        data = d;
-        empty[0..rem].copy_from_slice(r);
-        last = Some(MutProxy {
-            data: empty,
-            restore: r,
-        });
+    type Item = R;
+
+    #[inline]
+    fn next(&mut self) -> Option<R> {
+        if self.left < self.right {
+            let idx = self.left;
+            self.left += 1;
+            Some(unsafe { self.vectorizer.get(idx) })
+        } else if let Some(partial) = self.partial.take_partial() {
+            Some(partial)
+        } else {
+            None
+        }
+    }
+}
+
+// ExactSizedIterator, ReverseIterator
+
+// TODO: Hide away the basic implementation?
+// TODO: Is it a good idea to have it like vec.vectorize()? Won't it create footguns on mut vector?
+pub trait Vectorizable<V>: Sized {
+    type Padding;
+    type Vectorizer: Vectorizer<V>;
+    fn create(self, pad: Option<Self::Padding>) -> (Self::Vectorizer, usize, Option<V>);
+
+    #[inline]
+    fn vectorize(self) -> VectorizedIter<Self::Vectorizer, (), V> {
+        let (vectorizer, len, partial) = self.create(None);
+        assert!(partial.is_none());
+        VectorizedIter {
+            partial: (),
+            vectorizer,
+            left: 0,
+            right: len,
+            _result: PhantomData,
+        }
     }
 
-    vectorize_mut_inner(data).chain(last)
+    #[inline]
+    fn vectorize_pad(self, pad: Self::Padding) -> VectorizedIter<Self::Vectorizer, Option<V>, V> {
+        let (vectorizer, len, partial) = self.create(Some(pad));
+        VectorizedIter {
+            partial,
+            vectorizer,
+            left: 0,
+            right: len,
+            _result: PhantomData,
+        }
+    }
 }
 
-#[inline]
-fn vectorize_mut_inner<'a, V, B>(data: &'a mut [B])
-    -> impl Iterator<Item = MutProxy<'a, V, B>> + 'a
-where
-    B: Copy,
-    V: Vector<B> + Default,
-{
-    data
-        .chunks_exact_mut(V::LANES)
-        .map(|d| MutProxy {
-            data: V::new(d),
-            restore: d,
-        })
+#[derive(Copy, Clone, Debug)]
+pub struct ReadVectorizer<'a, B, V> {
+    start: *const B,
+    _vector: PhantomData<V>,
+    _slice: PhantomData<&'a [B]>, // To hold the lifetime
 }
 
-#[inline]
-pub fn vectorize_mut_exact<'a, V, B>(data: &'a mut [B])
-    -> impl Iterator<Item = impl DerefMut<Target = V> + 'a> + 'a
+// Note: The impls here assume V, B, P are Sync and Send, which they are. Nobody is able to create
+// this directly and we do have the limits on Vector, the allowed implementations, etc.
+unsafe impl<B, V> Send for ReadVectorizer<'_, B, V> {}
+unsafe impl<B, V> Sync for ReadVectorizer<'_, B, V> {}
+
+impl<'a, B, V> Vectorizer<V> for ReadVectorizer<'_, B, V>
 where
+    V: Vector<B>,
     B: Copy,
-    V: Vector<B> + Default,
 {
-    assert!(
-        data.len() % V::LANES == 0,
-        "Data to vectorize_exact must be divisible by number of lanes ({} % {})",
-        data.len(), V::LANES,
-    );
-    vectorize_mut_inner(data)
+    #[inline]
+    unsafe fn get(&self, idx: usize) -> V {
+        V::new_unchecked(self.start.add(V::LANES * idx))
+    }
 }
+
+impl<'a, B, V> Vectorizable<V> for &'a [B]
+where
+    B: Copy + 'a,
+    V: Vector<B>,
+{
+    type Vectorizer = ReadVectorizer<'a, B, V>;
+    type Padding = V;
+    #[inline]
+    fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<V>) {
+        let len = self.len();
+        assert!(len * mem::size_of::<B>() <= isize::MAX as usize, "Slice too huge");
+        let rest = len % V::LANES;
+        let main = len - rest;
+        let start = self.as_ptr();
+        let partial = match (rest, pad) {
+            (0, _) => None,
+            (_, Some(mut pad)) => {
+                pad[..rest].copy_from_slice(&self[main..]);
+                Some(pad)
+            }
+            _ => panic!(
+                "Data to vectorize not divisible by lanes ({} vs {})",
+                V::LANES,
+                len,
+            ),
+        };
+        let me = ReadVectorizer {
+            start,
+            _vector: PhantomData,
+            _slice: PhantomData,
+        };
+        (me, main / V::LANES, partial)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct WriteVectorizer<'a, B, V> {
+    start: *mut B,
+    _vector: PhantomData<V>,
+    _slice: PhantomData<&'a mut [B]>, // To hold the lifetime
+}
+
+// Note: The impls here assume V, B, P are Sync and Send, which they are. Nobody is able to create
+// this directly and we do have the limits on Vector, the allowed implementations, etc.
+unsafe impl<B, V> Send for WriteVectorizer<'_, B, V> {}
+unsafe impl<B, V> Sync for WriteVectorizer<'_, B, V> {}
+
+impl<'a, B, V> Vectorizer<MutProxy<'a, B, V>> for WriteVectorizer<'a, B, V>
+where
+    V: Vector<B>,
+    B: Copy,
+{
+    #[inline]
+    unsafe fn get(&self, idx: usize) -> MutProxy<'a, B, V> {
+        let ptr = self.start.add(V::LANES * idx);
+        MutProxy {
+            data: V::new_unchecked(ptr),
+            restore: slice::from_raw_parts_mut(ptr, V::LANES),
+        }
+    }
+}
+
+impl<'a, B, V> Vectorizable<MutProxy<'a, B, V>> for &'a mut [B]
+where
+    B: Copy + 'a,
+    V: Vector<B>,
+{
+    type Vectorizer = WriteVectorizer<'a, B, V>;
+    type Padding = V;
+    #[inline]
+    fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<MutProxy<'a, B, V>>) {
+        let len = self.len();
+        assert!(len * mem::size_of::<B>() <= isize::MAX as usize, "Slice too huge");
+        let rest = len % V::LANES;
+        let main = len - rest;
+        let start = self.as_mut_ptr();
+        let partial = match (rest, pad) {
+            (0, _) => None,
+            (_, Some(mut pad)) => {
+                let restore = &mut self[main..];
+                pad[..rest].copy_from_slice(restore);
+                Some(MutProxy {
+                    data: pad,
+                    restore,
+                })
+            }
+            _ => panic!(
+                "Data to vectorize not divisible by lanes ({} vs {})",
+                V::LANES,
+                len,
+            ),
+        };
+        let me = WriteVectorizer {
+            start,
+            _vector: PhantomData,
+            _slice: PhantomData,
+        };
+        (me, main / V::LANES, partial)
+    }
+}
+
+impl<A, B, AR, BR> Vectorizer<(AR, BR)> for (A, B)
+where
+    A: Vectorizer<AR>,
+    B: Vectorizer<BR>,
+{
+    #[inline]
+    unsafe fn get(&self, idx: usize) -> (AR, BR) {
+        (self.0.get(idx), self.1.get(idx))
+    }
+}
+
+impl<A, B, AR, BR> Vectorizable<(AR, BR)> for (A, B)
+where
+    A: Vectorizable<AR>,
+    B: Vectorizable<BR>,
+{
+    type Vectorizer = (A::Vectorizer, B::Vectorizer);
+    type Padding = (A::Padding, B::Padding);
+    #[inline]
+    fn create(self, pad: Option<Self::Padding>) -> (Self::Vectorizer, usize, Option<(AR, BR)>) {
+        let (ap, bp) = if let Some((ap, bp)) = pad {
+            (Some(ap), Some(bp))
+        } else {
+            (None, None)
+        };
+        let (av, asiz, ap) = self.0.create(ap);
+        let (bv, bsiz, bp) = self.1.create(bp);
+        // TODO: We may want to support this in the padded mode eventually by creating more
+        // paddings
+        assert_eq!(asiz, bsiz, "Vectorizing data of different lengths");
+        let pad = match (ap, bp) {
+            (Some(ap), Some(bp)) => Some((ap, bp)),
+            (None, None) => None,
+            _ => panic!("Paddings are not provided by both vectorized data"),
+        };
+        ((av, bv), asiz, pad)
+    }
+}
+
+// TODO: Macro to generate bigger tuples, we want more than 2 and don't want to do so manually
 
 #[cfg(test)]
 mod tests {
@@ -260,9 +448,9 @@ mod tests {
     #[test]
     fn iter() {
         let data = (0..=10u16).collect::<Vec<_>>();
-        let vtotal = vectorize(&data, u16x8::default())
-            .fold(u16x8::default(), |a, b| a + b);
-        let total: u16 = vtotal.iter().sum();
+        let vtotal: u16x8 = data.vectorize_pad(u16x8::default())
+            .sum();
+        let total: u16 = vtotal.horizontal_sum();
         assert_eq!(total, 55);
     }
 
@@ -271,7 +459,7 @@ mod tests {
         let data = (0..33u32).collect::<Vec<_>>();
         let mut dst = [0u32; 33];
         let ones = u32x4::splat(1);
-        for (mut d, s) in vectorize_mut(&mut dst, u32x4::default()).zip(vectorize(&data, u32x4::default())) {
+        for (mut d, s) in (&mut dst[..], &data[..]).vectorize_pad((u32x4::default(), u32x4::default())) {
             *d = ones + s;
         }
 

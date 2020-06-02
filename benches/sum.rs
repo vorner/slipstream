@@ -1,10 +1,10 @@
 use multiversion::multiversion;
 use test::Bencher;
 
-use impatient::Vector;
+use impatient::prelude::*;
 
 use crate::mv;
-use crate::utils::{gen_data, gen_vecs, gen_arch_vecs, V};
+use crate::utils::{gen_data, gen_vecs, V};
 
 #[bench]
 fn basic(b: &mut Bencher) {
@@ -70,7 +70,7 @@ mv! {
     fn vectorize(data: &[f32]) -> f32 {
         let mut result = V::default();
 
-        for v in impatient::vectorize_exact(data) {
+        for v in data.vectorize() {
             result += v;
         }
 
@@ -80,7 +80,7 @@ mv! {
     fn vectorize_horizontal(data: &[f32]) -> f32 {
         let mut result = V::default();
 
-        for v in impatient::vectorize_exact(data) {
+        for v in data.vectorize() {
             result += v;
         }
 
@@ -95,7 +95,24 @@ mv! {
     }
 
     fn sum_vectorize(data: &[f32]) -> f32 {
-        impatient::vectorize_exact(data)
+        data.vectorize()
+            .sum::<V>()
+            .horizontal_sum()
+    }
+
+    // Testing what happens performance wise if we get mutable iteration in play
+    fn vectorize_mut(data: &mut [f32]) -> f32 {
+        let mut result = V::default();
+
+        for v in data.vectorize() {
+            result += *v;
+        }
+
+        result.horizontal_sum()
+    }
+
+    fn vectorize_pad(data: &[f32]) -> f32 {
+        data[1..].vectorize_pad(V::default())
             .sum::<V>()
             .horizontal_sum()
     }
@@ -209,6 +226,24 @@ fn sum_vectorize_detect(b: &mut Bencher) {
     })
 }
 
+#[bench]
+fn vectorize_mut_default(b: &mut Bencher) {
+    let mut data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_mut_default_version(&mut data));
+    })
+}
+
+#[bench]
+fn vectorize_mut_detect(b: &mut Bencher) {
+    let mut data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_mut(&mut data));
+    })
+}
+
 
 #[bench]
 fn sum_default(b: &mut Bencher) {
@@ -246,12 +281,31 @@ fn vectorized_horizontal_detect(b: &mut Bencher) {
     })
 }
 
+#[bench]
+fn vectorize_pad_default(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_pad_default_version(&data));
+    })
+}
+
+#[bench]
+fn vectorize_pad_detect(b: &mut Bencher) {
+    let data = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_pad(&data));
+    })
+}
 
 #[bench]
 #[cfg(target_arch = "x86_64")]
-fn vectorized_manual_sse(b: &mut Bencher) {
+fn manual_sse(b: &mut Bencher) {
     use core::arch::x86_64 as arch;
     use core::mem;
+
+    use crate::utils::gen_arch_vecs;
 
     let data = gen_arch_vecs();
 

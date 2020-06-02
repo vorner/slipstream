@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
 
+use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::*;
@@ -239,9 +240,70 @@ where
             None
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.right - self.left + self.partial.size();
+        (len, Some(len))
+    }
+
+    // Overriden for performance… these things have no side effects, so we can avoid calling next
+
+    #[inline]
+    fn count(self) -> usize {
+        self.size_hint().0
+    }
+
+    #[inline]
+    fn last(mut self) -> Option<R> {
+        self.next_back()
+    }
+
+    // TODO: This wants some tests
+    #[inline]
+    fn nth(&mut self, n: usize) -> Option<R> {
+        let main_len = self.right - self.left;
+        if main_len >= n {
+            self.left += n;
+            self.next()
+        } else {
+            self.left = self.right;
+            self.partial.take_partial();
+            None
+        }
+    }
 }
 
-// ExactSizedIterator, ReverseIterator
+impl<V, P, R> DoubleEndedIterator for VectorizedIter<V, P, R>
+where
+    V: Vectorizer<R>,
+    P: Partial<R>,
+{
+    // TODO: Tests
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if let Some(partial) = self.partial.take_partial() {
+            Some(partial)
+        } else if self.left < self.right {
+            self.right -= 1;
+            Some(unsafe { self.vectorizer.get(self.right)})
+        } else {
+            None
+        }
+    }
+}
+
+impl<V, P, R> ExactSizeIterator for VectorizedIter<V, P, R>
+where
+    V: Vectorizer<R>,
+    P: Partial<R>,
+{ }
+
+impl<V, P, R> FusedIterator for VectorizedIter<V, P, R>
+where
+    V: Vectorizer<R>,
+    P: Partial<R>,
+{ }
 
 // TODO: Hide away the basic implementation?
 // TODO: Is it a good idea to have it like vec.vectorize()? Won't it create footguns on mut vector?
@@ -433,6 +495,7 @@ where
         let pad = match (ap, bp) {
             (Some(ap), Some(bp)) => Some((ap, bp)),
             (None, None) => None,
+            // TODO: We could also handle this in the padded mode by doing empty pads
             _ => panic!("Paddings are not provided by both vectorized data"),
         };
         ((av, bv), asiz, pad)

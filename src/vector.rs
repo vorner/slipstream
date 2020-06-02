@@ -259,6 +259,8 @@ macro_rules! vector_impl {
         bin_op_impl!($name, BitAnd, bitand, BitAndAssign, bitand_assign);
         bin_op_impl!($name, BitOr, bitor, BitOrAssign, bitor_assign);
         bin_op_impl!($name, BitXor, bitxor, BitXorAssign, bitxor_assign);
+        bin_op_impl!($name, Shl, shl, ShlAssign, shl_assign);
+        bin_op_impl!($name, Shr, shr, ShrAssign, shr_assign);
 
         una_op_impl!($name, Neg, neg);
         una_op_impl!($name, Not, not);

@@ -152,3 +152,35 @@ fn manual_sse(b: &mut Bencher) {
         }
     })
 }
+
+#[bench]
+#[cfg(target_arch = "x86_64")]
+fn manual_sse_fmadd(b: &mut Bencher) {
+    use core::arch::x86_64::{self as arch, __m128};
+    use std::mem;
+
+    use crate::utils::gen_arch_vecs;
+
+    let l = gen_arch_vecs();
+    let r = gen_arch_vecs();
+
+    #[inline]
+    #[target_feature(enable = "fma")]
+    unsafe fn inner(l: &[__m128], r: &[__m128]) {
+        let mut result = arch::_mm_setzero_ps();
+        for (&l, &r) in l.iter().zip(r.iter()) {
+            result = arch::_mm_fmadd_ps(l, r, result);
+        }
+
+        let result: [f32; 4] = mem::transmute(result);
+        test::black_box(result.iter().sum::<f32>());
+    }
+
+    if is_x86_feature_detected!("fma") {
+        b.iter(|| {
+            unsafe {
+                inner(&l, &r);
+            }
+        });
+    }
+}

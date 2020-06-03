@@ -96,3 +96,57 @@ pub type f64x2 = Packed16<f64, U2>;
 pub type f64x4 = Packed32<f64, U4>;
 pub type f64x8 = Packed32<f64, U8>;
 pub type f64x16 = Packed32<f64, U16>;
+
+// Note: the usize/isize vectors are per-pointer-width because they need a different alignment.
+
+#[cfg(target_pointer_width = "32")]
+mod sized {
+    use super::*;
+
+    pub type usizex2 = Packed8<usize, U2>;
+    pub type usizex4 = Packed16<usize, U4>;
+    pub type usizex8 = Packed32<usize, U8>;
+    pub type usizex16 = Packed32<usize, U16>;
+
+    pub type wusizex2 = Packed8<Wrapping<usize>, U2>;
+    pub type wusizex4 = Packed16<Wrapping<usize>, U4>;
+    pub type wusizex8 = Packed32<Wrapping<usize>, U8>;
+    pub type wusizex16 = Packed32<Wrapping<usize>, U16>;
+
+    pub type isizex2 = Packed8<isize, U2>;
+    pub type isizex4 = Packed16<isize, U4>;
+    pub type isizex8 = Packed32<isize, U8>;
+    pub type isizex16 = Packed32<isize, U16>;
+
+    pub type wisizex2 = Packed8<Wrapping<isize>, U2>;
+    pub type wisizex4 = Packed16<Wrapping<isize>, U4>;
+    pub type wisizex8 = Packed32<Wrapping<isize>, U8>;
+    pub type wisizex16 = Packed32<Wrapping<isize>, U16>;
+}
+
+#[cfg(target_pointer_width = "64")]
+mod sized {
+    use super::*;
+
+    pub type usizex2 = Packed16<usize, U2>;
+    pub type usizex4 = Packed32<usize, U4>;
+    pub type usizex8 = Packed32<usize, U8>;
+    pub type usizex16 = Packed32<usize, U16>;
+
+    pub type wusizex2 = Packed16<Wrapping<usize>, U2>;
+    pub type wusizex4 = Packed32<Wrapping<usize>, U4>;
+    pub type wusizex8 = Packed32<Wrapping<usize>, U8>;
+    pub type wusizex16 = Packed32<Wrapping<usize>, U16>;
+
+    pub type isizex2 = Packed16<isize, U2>;
+    pub type isizex4 = Packed32<isize, U4>;
+    pub type isizex8 = Packed32<isize, U8>;
+    pub type isizex16 = Packed32<isize, U16>;
+
+    pub type wisizex2 = Packed16<Wrapping<isize>, U2>;
+    pub type wisizex4 = Packed32<Wrapping<isize>, U4>;
+    pub type wisizex8 = Packed32<Wrapping<isize>, U8>;
+    pub type wisizex16 = Packed32<Wrapping<isize>, U16>;
+}
+
+pub use sized::*;

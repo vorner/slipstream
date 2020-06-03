@@ -1,53 +1,65 @@
 #![feature(test)]
 extern crate test;
 
+use std::iter;
+use std::fmt::Display;
 use std::num::Wrapping;
 use std::ops::Mul;
 use std::time::Instant;
 
-use array_init::array_init;
 use impatient::prelude::*;
 use multiversion::multiversion;
 use rand::random;
 
 const SIZE: usize = 512;
-struct Matrix([[V; SIZE / V::LANES]; SIZE]);
-
-type V = wu32x16;
+type V = wu32x8;
+type O = usizex8;
 const L: usize = V::LANES;
+
+#[derive(Debug, PartialEq)]
+struct Matrix(Vec<Wrapping<u32>>);
+
+#[inline]
+fn at(x: usize, y: usize) -> usize {
+    y * SIZE + x
+}
 
 impl Matrix {
     fn random() -> Self {
-        Self(array_init(|_| {
-            array_init(|_| {
-                let inner: [Wrapping<u32>; 16] = random();
-                V::new(&inner)
-            })
-        }))
+        Self(iter::repeat_with(random).map(Wrapping).take(SIZE * SIZE).collect())
     }
 
     #[multiversion]
-    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2")]
+    #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
-        let mut output = [[V::default(); SIZE / L]; SIZE];
+        let mut output = vec![Wrapping(0); SIZE * SIZE];
         let mut column: [V; SIZE / L] = [Default::default(); SIZE / L];
+        let offsets = (0..L).collect::<Vec<_>>();
+        let base_offsets = O::new(offsets) * O::splat(SIZE);
+        let mut offsets: [O; SIZE / L] = [Default::default(); SIZE / L];
+        for i in 0..SIZE / L {
+            offsets[i] = base_offsets + O::splat(i * L * SIZE);
+        }
         for x in 0..SIZE {
-            // Do we want some kind of gather/stride way to load the vectors?
-            // Anyway, as this is likely slower, we make sure to do the columns less often and
-            // cache them for each corresponding rows, which load much faster
-            for i in 0..SIZE {
-                column[i / L][i % L] = rhs.0[i][x / L][x % L];
+            // The gather_load is likely slower than just vectorizing the row, so we do this less
+            // often and just once for each column instead of each time.
+            let local_offsets = O::splat(x);
+            for (col, off) in column.iter_mut().zip(offsets.iter()) {
+                *col = V::gather_load(&rhs.0, *off + local_offsets);
             }
 
             for y in 0..SIZE {
                 let mut result = V::default();
-                for (c, r) in column.iter().zip(self.0[y].iter()) {
-                    result += *c * *r;
+                let row_start = at(0, y);
+                // TODO: Support for pre-vectorized stuff in .vectorize
+                for z in 0..SIZE / L {
+                    let row_chunk = V::new(&self.0[row_start + z * L..row_start + (z + 1) * L]);
+                    result += row_chunk * column[z];
                 }
 
-                output[y][x / L][x % L] = result.horizontal_sum();
+                output[at(x, y)] = result.horizontal_sum();
             }
         }
         Matrix(output)
@@ -57,11 +69,11 @@ impl Matrix {
 impl Mul for &'_ Matrix {
     type Output = Matrix;
     fn mul(self, rhs: &Matrix) -> Matrix {
-        let mut output = [[V::default(); SIZE / L]; SIZE];
+        let mut output = vec![Wrapping(0); SIZE * SIZE];
         for x in 0..SIZE {
             for y in 0..SIZE {
                 for z in 0..SIZE {
-                    output[y][x / L][x % L] += self.0[y][z / L][z % L] * rhs.0[z][x / L][x % L];
+                    output[at(x, y)] += self.0[at(z, y)] * rhs.0[at(x, z)];
                 }
             }
         }
@@ -69,28 +81,19 @@ impl Mul for &'_ Matrix {
     }
 }
 
-fn timed<R, F: FnOnce() -> R>(f: F) -> R {
+fn timed<N: Display, R, F: FnOnce() -> R>(name: N, f: F) -> R {
     let now = Instant::now();
     let result = test::black_box(f());
-    println!("took {:?}", now.elapsed());
+    println!("{} took:\t{:?}", name, now.elapsed());
     result
 }
 
 fn main() {
     let a = Matrix::random();
     let b = Matrix::random();
-    let z = timed(|| &a * &b);
-    let x = timed(|| a.mult_simd_default_version(&b));
-    let w = timed(|| a.mult_simd(&b));
-    //assert_eq!(z, w);
-    /*
-    if let Ok(sse) = Sse4_1::detect() {
-        let w = timed(|| unsafe { mul_sse(sse, &a, &b) });
-        //assert_eq!(z, w);
-    }
-    if let Ok(avx) = Avx2::detect() {
-        let w = timed(|| unsafe { mul_avx(avx, &a, &b) });
-        //assert_eq!(z, w);
-    }
-    */
+    let z = timed("Scalar multiplication", || &a * &b);
+    let x = timed("Compile-time detected", || a.mult_simd_default_version(&b));
+    let w = timed("Run-time detected", || a.mult_simd(&b));
+    assert_eq!(z, x);
+    assert_eq!(z, w);
 }

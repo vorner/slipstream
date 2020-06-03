@@ -91,12 +91,13 @@ macro_rules! vector_impl {
             content: GenericArray<B, S>,
         }
 
-        impl<B, S> Vector<B> for $name<B, S>
+        impl<B, S> Vector for $name<B, S>
         where
             B: inner::Repr + Add<Output = B> + Mul<Output = B> + 'static,
             S: ArrayLength<B> + 'static,
             S::ArrayType: Copy,
         {
+            type Base = B;
             type Lanes = S;
             #[inline]
             unsafe fn new_unchecked(input: *const B) -> Self {
@@ -111,10 +112,7 @@ macro_rules! vector_impl {
             }
 
             #[inline]
-            fn splat(value: B) -> Self
-            where
-                B: Clone
-            {
+            fn splat(value: B) -> Self {
                 assert!(
                     isize::MAX as usize > mem::size_of::<Self>(),
                     "Vector type too huge",
@@ -232,10 +230,10 @@ macro_rules! vector_impl {
 
         impl<B, S> Product for $name<B, S>
         where
-            B: Copy + inner::Repr + MulAssign,
+            B: inner::Repr + MulAssign,
             S: ArrayLength<B>,
             S::ArrayType: Copy,
-            Self: Vector<B>,
+            Self: Vector<Base = B, Lanes = S>,
         {
             #[inline]
             fn product<I>(iter: I) -> Self

@@ -24,7 +24,7 @@ pub mod prelude {
 mod inner {
     use core::num::Wrapping;
 
-    pub unsafe trait Repr: Copy {
+    pub unsafe trait Repr: Send + Sync + Copy + 'static {
         const ONE: Self;
     }
 
@@ -154,13 +154,14 @@ where
     }
 }
 
-pub trait Vector<B>: Deref<Target = [B]> + DerefMut + Sized + 'static {
-    type Lanes: ArrayLength<B>;
+pub trait Vector: Copy + Send + Sync + Sized + 'static {
+    type Base: inner::Repr;
+    type Lanes: ArrayLength<Self::Base>;
     const LANES: usize = Self::Lanes::USIZE;
-    unsafe fn new_unchecked(input: *const B) -> Self;
+    unsafe fn new_unchecked(input: *const Self::Base) -> Self;
 
     #[inline]
-    fn new(input: &[B]) -> Self {
+    fn new(input: &[Self::Base]) -> Self {
         assert_eq!(
             input.len(),
             Self::LANES,
@@ -170,12 +171,9 @@ pub trait Vector<B>: Deref<Target = [B]> + DerefMut + Sized + 'static {
         unsafe { Self::new_unchecked(input.as_ptr()) }
     }
 
-    fn splat(value: B) -> Self
-    where
-        B: Copy;
-
-    fn horizontal_sum(self) -> B;
-    fn horizontal_product(self) -> B;
+    fn splat(value: Self::Base) -> Self;
+    fn horizontal_sum(self) -> Self::Base;
+    fn horizontal_product(self) -> Self::Base;
 }
 
 // TODO: Hide away inside inner
@@ -352,8 +350,9 @@ unsafe impl<B, V> Sync for ReadVectorizer<'_, B, V> {}
 
 impl<'a, B, V> Vectorizer<V> for ReadVectorizer<'_, B, V>
 where
-    V: Vector<B>,
-    B: Copy,
+    B: inner::Repr,
+    V: Vector<Base = B>,
+    V::Lanes: ArrayLength<B>,
 {
     #[inline]
     unsafe fn get(&self, idx: usize) -> V {
@@ -363,8 +362,9 @@ where
 
 impl<'a, B, V> Vectorizable<V> for &'a [B]
 where
-    B: Copy + 'a,
-    V: Vector<B>,
+    B: inner::Repr,
+    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
+    V::Lanes: ArrayLength<B>,
 {
     type Vectorizer = ReadVectorizer<'a, B, V>;
     type Padding = V;
@@ -410,8 +410,9 @@ unsafe impl<B, V> Sync for WriteVectorizer<'_, B, V> {}
 
 impl<'a, B, V> Vectorizer<MutProxy<'a, B, V>> for WriteVectorizer<'a, B, V>
 where
-    V: Vector<B>,
-    B: Copy,
+    B: inner::Repr,
+    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
+    V::Lanes: ArrayLength<B>,
 {
     #[inline]
     unsafe fn get(&self, idx: usize) -> MutProxy<'a, B, V> {
@@ -425,8 +426,9 @@ where
 
 impl<'a, B, V> Vectorizable<MutProxy<'a, B, V>> for &'a mut [B]
 where
-    B: Copy + 'a,
-    V: Vector<B>,
+    B: inner::Repr,
+    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
+    V::Lanes: ArrayLength<B>,
 {
     type Vectorizer = WriteVectorizer<'a, B, V>;
     type Padding = V;

@@ -1,3 +1,5 @@
 /target
 Cargo.lock
 tags
+perf.data
+perf.data.old

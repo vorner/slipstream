@@ -161,7 +161,11 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     unsafe fn new_unchecked(input: *const Self::Base) -> Self;
 
     #[inline]
-    fn new(input: &[Self::Base]) -> Self {
+    fn new<I>(input: I) -> Self
+    where
+        I: AsRef<[Self::Base]>,
+    {
+        let input = input.as_ref();
         assert_eq!(
             input.len(),
             Self::LANES,
@@ -172,6 +176,17 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     }
 
     fn splat(value: Self::Base) -> Self;
+
+    fn gather_load<I, Idx>(input: I, idx: Idx) -> Self
+    where
+        I: AsRef<[Self::Base]>,
+        Idx: AsRef<[usize]>;
+
+    fn scatter_store<O, Idx>(self, output: O, idx: Idx)
+    where
+        O: AsMut<[Self::Base]>,
+        Idx: AsRef<[usize]>;
+
     fn horizontal_sum(self) -> Self::Base;
     fn horizontal_product(self) -> Self::Base;
 }

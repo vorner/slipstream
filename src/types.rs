@@ -2,7 +2,28 @@ use core::num::Wrapping;
 
 use typenum::consts::*;
 
+use crate::mask::{m8, m16, m32, m64, msize};
 use crate::vector::*;
+
+pub type m8x2 = Packed2<m8, U2>;
+pub type m8x4 = Packed4<m8, U4>;
+pub type m8x8 = Packed8<m8, U8>;
+pub type m8x16 = Packed16<m8, U16>;
+
+pub type m16x2 = Packed4<m16, U2>;
+pub type m16x4 = Packed8<m16, U4>;
+pub type m16x8 = Packed16<m16, U8>;
+pub type m16x16 = Packed32<m16, U16>;
+
+pub type m32x2 = Packed8<m32, U2>;
+pub type m32x4 = Packed16<m32, U4>;
+pub type m32x8 = Packed32<m32, U8>;
+pub type m32x16 = Packed32<m32, U16>;
+
+pub type m64x2 = Packed16<m64, U2>;
+pub type m64x4 = Packed32<m64, U4>;
+pub type m64x8 = Packed32<m64, U8>;
+pub type m64x16 = Packed32<m64, U16>;
 
 pub type u8x2 = Packed2<u8, U2>;
 pub type u8x4 = Packed4<u8, U4>;
@@ -103,6 +124,11 @@ pub type f64x16 = Packed32<f64, U16>;
 mod sized {
     use super::*;
 
+    pub type msizex2 = Packed8<msize, U2>;
+    pub type msizex4 = Packed16<msize, U4>;
+    pub type msizex8 = Packed32<msize, U8>;
+    pub type msizex16 = Packed32<msize, U16>;
+
     pub type usizex2 = Packed8<usize, U2>;
     pub type usizex4 = Packed16<usize, U4>;
     pub type usizex8 = Packed32<usize, U8>;
@@ -127,6 +153,11 @@ mod sized {
 #[cfg(target_pointer_width = "64")]
 mod sized {
     use super::*;
+
+    pub type msizex2 = Packed16<msize, U2>;
+    pub type msizex4 = Packed32<msize, U4>;
+    pub type msizex8 = Packed32<msize, U8>;
+    pub type msizex16 = Packed32<msize, U16>;
 
     pub type usizex2 = Packed16<usize, U2>;
     pub type usizex4 = Packed32<usize, U4>;

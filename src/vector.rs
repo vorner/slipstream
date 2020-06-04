@@ -94,11 +94,13 @@ macro_rules! vector_impl {
         impl<B, S> Vector for $name<B, S>
         where
             B: inner::Repr + Add<Output = B> + Mul<Output = B> + 'static,
-            S: ArrayLength<B> + 'static,
-            S::ArrayType: Copy,
+            S: ArrayLength<B> + ArrayLength<B::Mask> + 'static,
+            <S as ArrayLength<B>>::ArrayType: Copy,
+            <S as ArrayLength<B::Mask>>::ArrayType: Copy,
         {
             type Base = B;
             type Lanes = S;
+            type Mask = $name<B::Mask, S>;
             #[inline]
             unsafe fn new_unchecked(input: *const B) -> Self {
                 assert!(

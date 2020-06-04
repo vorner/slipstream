@@ -17,9 +17,8 @@ mv! {
     }
 
     fn vectorized(l: &[V], r: &[V]) -> f32 {
-        l.iter()
-            .zip(r.iter())
-            .map(|(&l, &r)| l * r)
+        (l, r).vectorize()
+            .map(|(l, r)| l * r)
             .sum::<V>()
             .horizontal_sum()
     }

@@ -404,6 +404,26 @@ vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), 
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6), (H, HR, 7));
 
+impl<'a, T> Vectorizer<T> for &'a [T]
+where
+    T: Copy,
+{
+    unsafe fn get(&mut self, idx: usize) -> T {
+        *self.get_unchecked(idx)
+    }
+}
+
+impl<'a, T> Vectorizer<&'a mut T> for &'a mut [T] {
+    unsafe fn get(&mut self, idx: usize) -> &'a mut T {
+        // FIXME: Why do we have to extend the lifetime here? Is it safe? Intuitively, it should,
+        // because we hand out each chunk only once and this is what IterMut does too.
+        let ptr = self.get_unchecked_mut(idx) as *mut T;
+        &mut *ptr
+    }
+}
+
+// Note: The vectorizable traits for &[Vector] and &mut [Vector] are in the macros in vector.rs
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
@@ -430,5 +450,18 @@ mod tests {
         for (l, r) in data.iter().zip(dst.iter()) {
             assert_eq!(*l + 1, *r);
         }
+    }
+
+    // Here, one of the inputs is already vectorized
+    #[test]
+    fn iter_prevec() {
+        let src = [0, 1, 2, 3, 4, 5, 6, 7];
+        let mut dst = [u16x4::default(); 2];
+
+        for (dst, src) in (&mut dst[..], &src[..]).vectorize() {
+            *dst = src;
+        }
+
+        assert_eq!(dst, [u16x4::new([0, 1, 2, 3]), u16x4::new([4, 5, 6, 7])]);
     }
 }

@@ -6,7 +6,7 @@ use core::ops::*;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::marker_traits::Unsigned;
 
-use crate::{inner, Vector};
+use crate::{inner, Vector, Vectorizable};
 
 macro_rules! bin_op_impl {
     ($name: ident, $tr: ident, $meth: ident, $tr_assign: ident, $meth_assign: ident) => {
@@ -320,6 +320,39 @@ macro_rules! vector_impl {
                 }
 
                 result
+            }
+        }
+
+        // Note: These Vectorizable things should probably better go into iterators.rs, but here we
+        // already have the macro that gets called for each Packed, so that overweights the logical
+        // place where we would want it.
+
+        impl<'a, B, S> Vectorizable<$name<B, S>> for &'a [$name<B, S>]
+        where
+            B: inner::Repr,
+            S: ArrayLength<B>,
+            S::ArrayType: Copy,
+        {
+            type Padding = ();
+            type Vectorizer = &'a [$name<B, S>];
+            fn create(self, _pad: Option<()>) -> (Self::Vectorizer, usize, Option<$name<B, S>>) {
+                (self, self.len(), None)
+            }
+        }
+
+        impl<'a, B, S> Vectorizable<&'a mut $name<B, S>> for &'a mut [$name<B, S>]
+        where
+            B: inner::Repr,
+            S: ArrayLength<B>,
+            S::ArrayType: Copy,
+        {
+            type Padding = ();
+            type Vectorizer = &'a mut [$name<B, S>];
+            fn create(self, _pad: Option<()>)
+                -> (Self::Vectorizer, usize, Option<&'a mut $name<B, S>>)
+            {
+                let len = self.len();
+                (self, len, None)
             }
         }
 

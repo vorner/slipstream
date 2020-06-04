@@ -6,7 +6,7 @@ use core::ops::*;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::marker_traits::Unsigned;
 
-use crate::{inner, Vector, Vectorizable};
+use crate::{inner, Mask, Vector, Vectorizable};
 
 macro_rules! bin_op_impl {
     ($name: ident, $tr: ident, $meth: ident, $tr_assign: ident, $meth_assign: ident) => {
@@ -78,6 +78,29 @@ macro_rules! una_op_impl {
     }
 }
 
+macro_rules! cmp_op {
+    ($tr: ident, $op: ident) => {
+        #[inline]
+        fn $op(self, other: Self) -> Self::Mask
+        where
+            Self::Base: $tr,
+        {
+            let mut result = MaybeUninit::<GenericArray<B::Mask, S>>::uninit();
+            unsafe {
+                for i in 0..S::USIZE {
+                    ptr::write(
+                        result.as_mut_ptr().cast::<B::Mask>().add(i),
+                        B::Mask::from_bool(self.content[i].$op(&other.content[i])),
+                    );
+                }
+                Self::Mask {
+                    content: result.assume_init(),
+                }
+            }
+        }
+    }
+}
+
 macro_rules! vector_impl {
     ($name: ident, $align: expr) => {
         #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
@@ -93,7 +116,7 @@ macro_rules! vector_impl {
 
         impl<B, S> Vector for $name<B, S>
         where
-            B: inner::Repr + Add<Output = B> + Mul<Output = B> + 'static,
+            B: inner::Repr + 'static,
             S: ArrayLength<B> + ArrayLength<B::Mask> + 'static,
             <S as ArrayLength<B>>::ArrayType: Copy,
             <S as ArrayLength<B::Mask>>::ArrayType: Copy,
@@ -122,7 +145,7 @@ macro_rules! vector_impl {
                 let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                 unsafe {
                     for i in 0..S::USIZE {
-                        ptr::write(result.as_mut_ptr().cast::<B>().offset(i as isize), value);
+                        ptr::write(result.as_mut_ptr().cast::<B>().add(i), value);
                     }
                     Self {
                         content: result.assume_init(),
@@ -181,7 +204,10 @@ macro_rules! vector_impl {
             }
 
             #[inline]
-            fn horizontal_sum(self) -> B {
+            fn horizontal_sum(self) -> B
+            where
+                B: Add<Output = B>,
+            {
                 #[inline(always)]
                 fn inner<B: Copy + Add<Output = B>>(d: &[B]) -> B {
                     if d.len() == 1 {
@@ -195,7 +221,10 @@ macro_rules! vector_impl {
             }
 
             #[inline]
-            fn horizontal_product(self) -> B {
+            fn horizontal_product(self) -> B
+            where
+                B: Mul<Output = B>,
+            {
                 #[inline(always)]
                 fn inner<B: Copy + Mul<Output = B>>(d: &[B]) -> B {
                     if d.len() == 1 {
@@ -207,6 +236,12 @@ macro_rules! vector_impl {
                 }
                 inner(&self.content)
             }
+
+            cmp_op!(PartialEq, eq);
+            cmp_op!(PartialOrd, lt);
+            cmp_op!(PartialOrd, gt);
+            cmp_op!(PartialOrd, le);
+            cmp_op!(PartialOrd, ge);
         }
 
         impl<B, S> Deref for $name<B, S>
@@ -445,5 +480,20 @@ mod tests {
     fn scatter_idx_cnt() {
         let mut out = [0; 10];
         V::new([1, 2, 3, 4]).scatter_store(&mut out, [0, 1, 2]);
+    }
+
+    #[test]
+    fn cmp() {
+        use crate::prelude::*;
+
+        let v1 = u32x4::new([1, 3, 5, 7]);
+        let v2 = u32x4::new([2, 3, 4, 5]);
+
+        let t = m32::TRUE;
+        let f = m32::FALSE;
+
+        assert_eq!(v1.eq(v2), m32x4::new([f, t, f, f]));
+        assert_eq!(v1.le(v2), m32x4::new([t, t, f, f]));
+        assert_eq!(v1.ge(v2), m32x4::new([f, t, t, t]));
     }
 }

@@ -2,7 +2,7 @@ use core::num::Wrapping;
 
 use typenum::consts::*;
 
-use crate::mask::{m8, m16, m32, m64, msize};
+pub use crate::mask::{m8, m16, m32, m64, msize};
 use crate::vector::*;
 
 pub type m8x2 = Packed2<m8, U2>;

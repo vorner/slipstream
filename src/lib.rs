@@ -1,6 +1,8 @@
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
 
+use core::ops::*;
+
 use generic_array::ArrayLength;
 use typenum::marker_traits::Unsigned;
 
@@ -176,6 +178,33 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
         O: AsMut<[Self::Base]>,
         Idx: AsRef<[usize]>;
 
-    fn horizontal_sum(self) -> Self::Base;
-    fn horizontal_product(self) -> Self::Base;
+    // TODO: Min, max based on lt/gt and blend
+
+    fn lt(self, other: Self) -> Self::Mask
+    where
+        Self::Base: PartialOrd;
+
+    fn gt(self, other: Self) -> Self::Mask
+    where
+        Self::Base: PartialOrd;
+
+    fn le(self, other: Self) -> Self::Mask
+    where
+        Self::Base: PartialOrd;
+
+    fn ge(self, other: Self) -> Self::Mask
+    where
+        Self::Base: PartialOrd;
+
+    fn eq(self, other: Self) -> Self::Mask
+    where
+        Self::Base: PartialEq;
+
+    fn horizontal_sum(self) -> Self::Base
+    where
+        Self::Base: Add<Output = Self::Base>;
+
+    fn horizontal_product(self) -> Self::Base
+    where
+        Self::Base: Mul<Output = Self::Base>;
 }

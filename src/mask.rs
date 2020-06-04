@@ -113,3 +113,10 @@ impl Mask for msize {
     const TRUE: Self = MaskWrapper(usize::MAX);
     const FALSE: Self = MaskWrapper(0);
 }
+
+impl inner::Sealed for bool {}
+
+impl Mask for bool {
+    const TRUE: Self = true;
+    const FALSE: Self = false;
+}

@@ -204,6 +204,31 @@ macro_rules! vector_impl {
             }
 
             #[inline]
+            fn blend<M, MB>(self, other: Self, mask: M) -> Self
+            where
+                M: AsRef<[MB]>,
+                MB: Mask
+            {
+                let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
+                let mask = mask.as_ref();
+                unsafe {
+                    for i in 0..Self::LANES {
+                        ptr::write(
+                            result.as_mut_ptr().cast::<B>().add(i),
+                            if mask[i].bool() {
+                                other[i]
+                            } else {
+                                self[i]
+                            }
+                        );
+                    }
+                    Self {
+                        content: result.assume_init(),
+                    }
+                }
+            }
+
+            #[inline]
             fn horizontal_sum(self) -> B
             where
                 B: Add<Output = B>,
@@ -345,6 +370,7 @@ macro_rules! vector_impl {
             S: ArrayLength<B>,
             S::ArrayType: Copy,
             Self: Vector<Base = B, Lanes = S>,
+            <Self as Vector>::Mask: AsRef<[B::Mask]>,
         {
             #[inline]
             fn product<I>(iter: I) -> Self
@@ -420,11 +446,10 @@ vector_impl!(Packed32, 32);
 
 #[cfg(test)]
 mod tests {
-    use typenum::consts::*;
-
     use super::*;
+    use crate::prelude::*;
 
-    type V = Packed2<u16, U4>;
+    type V = u16x4;
 
     #[test]
     #[should_panic(expected = "Creating vector from the wrong sized slice (expected 4, got 3)")]
@@ -482,18 +507,28 @@ mod tests {
         V::new([1, 2, 3, 4]).scatter_store(&mut out, [0, 1, 2]);
     }
 
+    const T: m32 = m32::TRUE;
+    const F: m32 = m32::FALSE;
+
     #[test]
     fn cmp() {
-        use crate::prelude::*;
-
         let v1 = u32x4::new([1, 3, 5, 7]);
         let v2 = u32x4::new([2, 3, 4, 5]);
 
-        let t = m32::TRUE;
-        let f = m32::FALSE;
+        assert_eq!(v1.eq(v2), m32x4::new([F, T, F, F]));
+        assert_eq!(v1.le(v2), m32x4::new([T, T, F, F]));
+        assert_eq!(v1.ge(v2), m32x4::new([F, T, T, T]));
+    }
 
-        assert_eq!(v1.eq(v2), m32x4::new([f, t, f, f]));
-        assert_eq!(v1.le(v2), m32x4::new([t, t, f, f]));
-        assert_eq!(v1.ge(v2), m32x4::new([f, t, t, t]));
+    #[test]
+    fn blend() {
+        let v1 = u32x4::new([1, 2, 3, 4]);
+        let v2 = u32x4::new([5, 6, 7, 8]);
+
+        let b1 = v1.blend(v2, m32x4::new([F, T, F, T]));
+        assert_eq!(b1, u32x4::new([1, 6, 3, 8]));
+
+        let b2 = v1.blend(v2, [false, true, false, true]);
+        assert_eq!(b1, b2);
     }
 }

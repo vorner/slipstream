@@ -228,6 +228,7 @@ where
     B: inner::Repr,
     V: Vector<Base = B>,
     V::Lanes: ArrayLength<B>,
+    V::Mask: AsRef<[B::Mask]>,
 {
     #[inline]
     unsafe fn get(&mut self, idx: usize) -> V {
@@ -240,6 +241,7 @@ where
     B: inner::Repr,
     V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
     V::Lanes: ArrayLength<B>,
+    V::Mask: AsRef<[B::Mask]>,
 {
     type Vectorizer = ReadVectorizer<'a, B, V>;
     type Padding = V;
@@ -288,6 +290,7 @@ where
     B: inner::Repr,
     V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
     V::Lanes: ArrayLength<B>,
+    V::Mask: AsRef<[B::Mask]>,
 {
     #[inline]
     unsafe fn get(&mut self, idx: usize) -> MutProxy<'a, B, V> {
@@ -307,6 +310,7 @@ where
     B: inner::Repr,
     V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
     V::Lanes: ArrayLength<B>,
+    V::Mask: AsRef<[B::Mask]>,
 {
     type Vectorizer = WriteVectorizer<'a, B, V>;
     type Padding = V;

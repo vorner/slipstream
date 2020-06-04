@@ -147,7 +147,7 @@ mod inner {
 pub trait Vector: Copy + Send + Sync + Sized + 'static {
     type Base: inner::Repr;
     type Lanes: ArrayLength<Self::Base>;
-    type Mask;
+    type Mask: AsRef<[<Self::Base as inner::Repr>::Mask]>;
     const LANES: usize = Self::Lanes::USIZE;
     unsafe fn new_unchecked(input: *const Self::Base) -> Self;
 
@@ -178,8 +178,6 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
         O: AsMut<[Self::Base]>,
         Idx: AsRef<[usize]>;
 
-    // TODO: Min, max based on lt/gt and blend
-
     fn lt(self, other: Self) -> Self::Mask
     where
         Self::Base: PartialOrd;
@@ -200,6 +198,33 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     where
         Self::Base: PartialEq;
 
+    /// Blend self and other using mask.
+    ///
+    /// If the corresponding lane of the mask is set, the value is taken from other. If it is not
+    /// set, it is taken from self.
+    fn blend<M, MB>(self, other: Self, mask: M) -> Self
+    where
+        M: AsRef<[MB]>,
+        MB: Mask;
+
+    #[inline]
+    fn maximum(self, other: Self) -> Self
+    where
+        Self::Base: PartialOrd,
+    {
+        let m = self.lt(other);
+        self.blend(other, m)
+    }
+
+    #[inline]
+    fn minimum(self, other: Self) -> Self
+    where
+        Self::Base: PartialOrd,
+    {
+        let m = self.gt(other);
+        self.blend(other, m)
+    }
+
     fn horizontal_sum(self) -> Self::Base
     where
         Self::Base: Add<Output = Self::Base>;
@@ -207,4 +232,21 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     fn horizontal_product(self) -> Self::Base
     where
         Self::Base: Mul<Output = Self::Base>;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    #[test]
+    fn minmax() {
+        let a = u32x4::new([1, 4, 8, 9]);
+        let b = u32x4::new([3, 3, 5, 11]);
+
+        assert_eq!(a.minimum(b), u32x4::new([1, 3, 5, 9]));
+        assert_eq!(a.maximum(b), u32x4::new([3, 4, 8, 11]));
+        assert_eq!(a.minimum(b), b.minimum(a));
+        assert_eq!(a.maximum(b), b.maximum(a));
+        assert_eq!(a.maximum(b).ge(a.minimum(b)), m32x4::splat(m32::TRUE));
+    }
 }

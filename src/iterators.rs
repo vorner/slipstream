@@ -82,7 +82,7 @@ pub trait Vectorizer<R> {
     // Safety:
     // idx in range
     // will be called at most once for each idx
-    unsafe fn get(&self, idx: usize) -> R;
+    unsafe fn get(&mut self, idx: usize) -> R;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -230,7 +230,7 @@ where
     V::Lanes: ArrayLength<B>,
 {
     #[inline]
-    unsafe fn get(&self, idx: usize) -> V {
+    unsafe fn get(&mut self, idx: usize) -> V {
         V::new_unchecked(self.start.add(V::LANES * idx))
     }
 }
@@ -290,7 +290,10 @@ where
     V::Lanes: ArrayLength<B>,
 {
     #[inline]
-    unsafe fn get(&self, idx: usize) -> MutProxy<'a, B, V> {
+    unsafe fn get(&mut self, idx: usize) -> MutProxy<'a, B, V> {
+        // FIXME: Technically, we extend the lifetime in the from_raw_parts_mut beyond what rust
+        // would allow us to normally do. But is this OK? As we are guaranteed never to give any
+        // chunk twice, this should act similar to IterMut from slice or similar.
         let ptr = self.start.add(V::LANES * idx);
         MutProxy {
             data: V::new_unchecked(ptr),
@@ -346,7 +349,7 @@ macro_rules! vectorizable_tuple {
             $($X: Vectorizer<$XR>,)*
         {
             #[inline]
-            unsafe fn get(&self, idx: usize) -> ($($XR),*) {
+            unsafe fn get(&mut self, idx: usize) -> ($($XR),*) {
                 ($(self.$X0.get(idx)),*)
             }
         }

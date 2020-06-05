@@ -10,4 +10,5 @@ extern crate test;
 mod utils;
 
 mod dot_product;
+mod life;
 mod sum;

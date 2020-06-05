@@ -173,10 +173,34 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
         I: AsRef<[Self::Base]>,
         Idx: AsRef<[usize]>;
 
+    /// Loads and replaces lanes in self based on mask.
+    ///
+    /// For every lane that's enabled in the mask a new value is loaded from the input on
+    /// corresponding input. The lanes that are disabled in mask are left intact.
+    ///
+    /// All the indices (even the disabled ones) need to be in range.
+    ///
+    /// # TODO
+    ///
+    /// Describe panics.
+    fn gather_load_masked<I, Idx, M, MB>(self, input: I, idx: Idx, mask: M) -> Self
+    where
+        I: AsRef<[Self::Base]>,
+        Idx: AsRef<[usize]>,
+        M: AsRef<[MB]>,
+        MB: Mask;
+
     fn scatter_store<O, Idx>(self, output: O, idx: Idx)
     where
         O: AsMut<[Self::Base]>,
         Idx: AsRef<[usize]>;
+
+    fn scatter_store_masked<O, Idx, M, MB>(self, output: O, idx: Idx, mask: M)
+    where
+        O: AsMut<[Self::Base]>,
+        Idx: AsRef<[usize]>,
+        M: AsRef<[MB]>,
+        MB: Mask;
 
     fn lt(self, other: Self) -> Self::Mask
     where

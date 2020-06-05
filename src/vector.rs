@@ -166,18 +166,56 @@ macro_rules! vector_impl {
                     "Vector type too huge",
                 );
                 assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
+                let max_len = *idx.iter().max().expect("Must have max on indexes");
+                assert!(
+                    max_len < input.len(),
+                    "Gather out of bounds ({} >= {})",
+                    max_len,
+                    input.len(),
+                );
                 let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                 unsafe {
                     for i in 0..Self::LANES {
-                        ptr::write(
-                            result.as_mut_ptr().cast::<B>().add(i),
-                            input[idx[i]],
-                        );
+                        let idx = *idx.get_unchecked(i);
+                        let input = *input.get_unchecked(idx);
+                        ptr::write(result.as_mut_ptr().cast::<B>().add(i), input);
                     }
                     Self {
                         content: result.assume_init(),
                     }
                 }
+            }
+
+            #[inline]
+            fn gather_load_masked<I, Idx, M, MB>(mut self, input: I, idx: Idx, mask: M) -> Self
+            where
+                I: AsRef<[B]>,
+                Idx: AsRef<[usize]>,
+                M: AsRef<[MB]>,
+                MB: Mask,
+            {
+                let input = input.as_ref();
+                let idx = idx.as_ref();
+                let mask = mask.as_ref();
+                assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
+                assert_eq!(Self::LANES, mask.len(), "Gathering with wrong sized mask");
+                let max_len = *idx.iter().max().expect("Must have max on indexes");
+                assert!(
+                    max_len < input.len(),
+                    "Gather out of bounds ({} >= {})",
+                    max_len,
+                    input.len(),
+                );
+                unsafe {
+                    for i in 0..Self::LANES {
+                        if mask[i].bool() {
+                            let idx = *idx.get_unchecked(i);
+                            let input = *input.get_unchecked(idx);
+                            self[i] = input;
+                        }
+                    }
+                }
+                self
             }
 
             #[inline]
@@ -199,7 +237,48 @@ macro_rules! vector_impl {
                     output.len(),
                 );
                 for i in 0..Self::LANES {
-                    output[idx[i]] = self[i];
+                    unsafe {
+                        // get_unchecked: index checked above in bulk and we use this one in hope
+                        // it'll taste better to the autovectorizer and it might find a scatter
+                        // insrtuction for us.
+                        let idx = *idx.get_unchecked(i);
+                        *output.get_unchecked_mut(idx) = self[i];
+                    }
+                }
+            }
+
+            #[inline]
+            fn scatter_store_masked<O, Idx, M, MB>(self, mut output: O, idx: Idx, mask: M)
+            where
+                O: AsMut<[B]>,
+                Idx: AsRef<[usize]>,
+                M: AsRef<[MB]>,
+                MB: Mask,
+            {
+                let output = output.as_mut();
+                let idx = idx.as_ref();
+                let mask = mask.as_ref();
+                assert_eq!(Self::LANES, idx.len(), "Scattering vector to wrong number of indexes");
+                assert_eq!(Self::LANES, mask.len(), "Scattering vector with wrong sized mask");
+                // Check prior to starting the scatter before we write anything. Might be nicer for
+                // optimizer + we don't want to do partial scatter.
+                let max_len = *idx.iter().max().expect("Must have max on indexes");
+                assert!(
+                    max_len < output.len(),
+                    "Scatter out of bounds ({} >= {})",
+                    max_len,
+                    output.len(),
+                );
+                for i in 0..Self::LANES {
+                    if mask[i].bool() {
+                        unsafe {
+                            // get_unchecked: index checked above in bulk and we use this one in
+                            // hope it'll taste better to the autovectorizer and it might find a
+                            // scatter insrtuction for us.
+                            let idx = *idx.get_unchecked(i);
+                            *output.get_unchecked_mut(idx) = self[i];
+                        }
+                    }
                 }
             }
 
@@ -482,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
+    #[should_panic(expected = "Gather out of bounds")]
     fn gather_oob() {
         V::gather_load([1, 2, 3], [0, 1, 2, 3]);
     }

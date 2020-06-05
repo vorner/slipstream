@@ -1,7 +1,8 @@
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
-use core::mem;
+use core::mem::{self, MaybeUninit};
 use core::ops::*;
+use core::ptr;
 use core::slice;
 
 use generic_array::ArrayLength;
@@ -407,6 +408,92 @@ vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6), (H, HR, 7));
+
+macro_rules! vectorizable_arr {
+    ($s: expr) => {
+        impl<T, TR> Vectorizer<[TR; $s]> for [T; $s]
+        where
+            T: Vectorizer<TR>,
+        {
+            #[inline]
+            unsafe fn get(&mut self, idx: usize) -> [TR; $s] {
+                let mut res = MaybeUninit::<[TR; $s]>::uninit();
+                for i in 0..$s {
+                    ptr::write(res.as_mut_ptr().cast::<TR>().add(i), self[i].get(idx));
+                }
+                res.assume_init()
+            }
+        }
+
+        impl<T, TR> Vectorizable<[TR; $s]> for [T; $s]
+        where
+            T: Vectorizable<TR> + Copy,
+            T::Padding: Copy,
+        {
+            type Vectorizer = [T::Vectorizer; $s];
+            type Padding = [T::Padding; $s];
+            #[inline]
+            fn create(self, pad: Option<Self::Padding>)
+                -> (Self::Vectorizer, usize, Option<[TR; $s]>)
+            {
+                let mut vectorizer = MaybeUninit::<Self::Vectorizer>::uninit();
+                let mut size = 0;
+                let mut padding = MaybeUninit::<[TR; $s]>::uninit();
+                let mut seen_some_pad = false;
+                let mut seen_none_pad = false;
+                unsafe {
+                    for i in 0..$s {
+                        let (v, s, p) = self[i].create(pad.map(|p| p[i]));
+                        ptr::write(vectorizer.as_mut_ptr().cast::<T::Vectorizer>().add(i), v);
+                        if i == 0 {
+                            size = s;
+                        } else {
+                            assert_eq!(
+                                size, s,
+                                "Vectorized lengths inconsistent across the array",
+                            );
+                        }
+                        match p {
+                            Some(p) => {
+                                seen_some_pad = true;
+                                ptr::write(padding.as_mut_ptr().cast::<TR>().add(i), p);
+                            },
+                            None => seen_none_pad = true,
+                        }
+                    }
+                    assert!(
+                        !seen_some_pad || !seen_none_pad,
+                        "Paddings inconsistent across the array",
+                    );
+                    let padding = if seen_some_pad {
+                        Some(padding.assume_init())
+                    } else {
+                        None
+                    };
+                    (vectorizer.assume_init(), size, padding)
+                }
+            }
+        }
+    }
+}
+
+vectorizable_arr!(0);
+vectorizable_arr!(1);
+vectorizable_arr!(2);
+vectorizable_arr!(3);
+vectorizable_arr!(4);
+vectorizable_arr!(5);
+vectorizable_arr!(6);
+vectorizable_arr!(7);
+vectorizable_arr!(8);
+vectorizable_arr!(9);
+vectorizable_arr!(10);
+vectorizable_arr!(11);
+vectorizable_arr!(12);
+vectorizable_arr!(13);
+vectorizable_arr!(14);
+vectorizable_arr!(15);
+vectorizable_arr!(16);
 
 impl<'a, T> Vectorizer<T> for &'a [T]
 where

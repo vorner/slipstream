@@ -5,10 +5,17 @@ use typenum::consts::*;
 pub use crate::mask::{m8, m16, m32, m64, msize};
 use crate::vector::*;
 
+pub type bx2 = Packed2<bool, U2>;
+pub type bx4 = Packed4<bool, U4>;
+pub type bx8 = Packed8<bool, U8>;
+pub type bx16 = Packed16<bool, U16>;
+pub type bx32 = Packed32<bool, U32>;
+
 pub type m8x2 = Packed2<m8, U2>;
 pub type m8x4 = Packed4<m8, U4>;
 pub type m8x8 = Packed8<m8, U8>;
 pub type m8x16 = Packed16<m8, U16>;
+pub type m8x32 = Packed32<m8, U32>;
 
 pub type m16x2 = Packed4<m16, U2>;
 pub type m16x4 = Packed8<m16, U4>;
@@ -29,6 +36,7 @@ pub type u8x2 = Packed2<u8, U2>;
 pub type u8x4 = Packed4<u8, U4>;
 pub type u8x8 = Packed8<u8, U8>;
 pub type u8x16 = Packed16<u8, U16>;
+pub type u8x32 = Packed16<u8, U32>;
 
 pub type u16x2 = Packed4<u16, U2>;
 pub type u16x4 = Packed8<u16, U4>;
@@ -49,6 +57,7 @@ pub type wu8x2 = Packed2<Wrapping<u8>, U2>;
 pub type wu8x4 = Packed4<Wrapping<u8>, U4>;
 pub type wu8x8 = Packed8<Wrapping<u8>, U8>;
 pub type wu8x16 = Packed16<Wrapping<u8>, U16>;
+pub type wu8x32 = Packed16<Wrapping<u8>, U32>;
 
 pub type wu16x2 = Packed4<Wrapping<u16>, U2>;
 pub type wu16x4 = Packed8<Wrapping<u16>, U4>;

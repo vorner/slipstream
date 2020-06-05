@@ -7,7 +7,7 @@ use std::num::Wrapping;
 use std::ops::Mul;
 use std::time::Instant;
 
-use multiversion::multiversion;
+use multiversion::{multiversion, target};
 use rand::random;
 use slipstream::prelude::*;
 
@@ -33,6 +33,7 @@ impl Matrix {
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+    #[static_dispatch(fn = "dot_prod")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
         let mut output = vec![Wrapping(0); SIZE * SIZE];
 
@@ -55,15 +56,33 @@ impl Matrix {
 
             for y in 0..SIZE { // Across rows
                 let row_start = at(0, y);
-                output[at(x, y)] = (&self.0[row_start..row_start + SIZE], &column[..])
-                    .vectorize()
-                    .map(|(r, c): (V, V)| r * c)
-                    .sum::<V>()
-                    .horizontal_sum();
+                output[at(x, y)] = dot_prod(&self.0[row_start..row_start + SIZE], &column);
             }
         }
         Matrix(output)
     }
+}
+
+#[multiversion]
+#[specialize(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma", fn = "dot_prod_avx", unsafe = true)]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
+#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+fn dot_prod(row: &[Wrapping<u32>], column: &[V]) -> Wrapping<u32> {
+    (row, column)
+        .vectorize()
+        .map(|(r, c): (V, V)| r * c)
+        .sum::<V>()
+        .horizontal_sum()
+}
+
+#[target("[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
+unsafe fn dot_prod_avx(row: &[Wrapping<u32>], column: &[V]) -> Wrapping<u32> {
+    let mut result = V::default();
+    for (r, c) in (row, column).vectorize() {
+        let r: V = r;
+        result += r * c;
+    }
+    result.horizontal_sum()
 }
 
 impl Mul for &'_ Matrix {

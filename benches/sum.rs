@@ -1,7 +1,7 @@
 use multiversion::multiversion;
 use test::Bencher;
 
-use impatient::prelude::*;
+use splitstream::prelude::*;
 
 use crate::mv;
 use crate::utils::{gen_data, gen_vecs, V};

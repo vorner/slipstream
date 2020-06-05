@@ -7,9 +7,9 @@ use std::num::Wrapping;
 use std::ops::Mul;
 use std::time::Instant;
 
-use impatient::prelude::*;
 use multiversion::multiversion;
 use rand::random;
+use splitstream::prelude::*;
 
 const SIZE: usize = 1024;
 type V = wu32x8;

@@ -5,8 +5,8 @@ use multiversion::multiversion;
 use once_cell::sync::Lazy;
 use test::Bencher;
 
-use impatient::prelude::*;
 use crate::mv;
+use splitstream::prelude::*;
 
 type Bools = bx32;
 type Counts = u8x32;

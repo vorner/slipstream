@@ -4,7 +4,7 @@ use std::iter;
 
 use once_cell::sync::Lazy;
 
-use impatient::prelude::*;
+use splitstream::prelude::*;
 
 #[macro_export]
 macro_rules! mv {
@@ -21,7 +21,7 @@ macro_rules! mv {
 }
 
 pub(crate) const SIZE: usize = 10*1024*1024;
-pub(crate) type V = impatient::f32x16;
+pub(crate) type V = splitstream::f32x16;
 
 pub(crate) fn gen_data() -> (&'static [f32], &'static [f32]) {
     fn inner() -> Vec<f32> {

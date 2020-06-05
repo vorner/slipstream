@@ -20,6 +20,7 @@ array-init = "~0.1"
 multiversion = "~0.5"
 proptest = "~0.9"
 rand = "~0.7"
+packed_simd = "~0.3"
 
 [[bench]]
 name = "simple"

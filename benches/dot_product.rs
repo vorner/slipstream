@@ -38,6 +38,19 @@ mv! {
             .sum::<V>()
             .horizontal_sum()
     }
+
+    fn packed(l: &[f32], r: &[f32]) -> f32 {
+        type V = packed_simd::f32x16;
+        let l = l.chunks_exact(16);
+        let r = r.chunks_exact(16);
+        let mut result = V::default();
+        for (l, r) in l.zip(r) {
+            let l = V::from_slice_unaligned(l);
+            let r = V::from_slice_unaligned(r);
+            result = l.mul_adde(r, result);
+        }
+        result.sum()
+    }
 }
 
 #[bench]
@@ -125,6 +138,24 @@ fn vectorize_tuple_detect(b: &mut Bencher) {
     let r = gen_data();
     b.iter(|| {
         test::black_box(vectorize_tuple(&l, &r));
+    });
+}
+
+#[bench]
+fn packed_default(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(packed_default_version(&l, &r));
+    });
+}
+
+#[bench]
+fn packed_detect(b: &mut Bencher) {
+    let l = gen_data();
+    let r = gen_data();
+    b.iter(|| {
+        test::black_box(packed(&l, &r));
     });
 }
 

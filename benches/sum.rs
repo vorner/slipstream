@@ -8,7 +8,7 @@ use crate::utils::{gen_data, gen_vecs, V};
 
 #[bench]
 fn basic(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
         test::black_box(data.iter().sum::<f32>());
@@ -120,115 +120,116 @@ mv! {
 
 #[bench]
 fn vectorized_default(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_default_version(&data));
+        test::black_box(vectorized_default_version(data));
     })
 }
 
 #[bench]
 fn vectorized_detect(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized(&data));
+        test::black_box(vectorized(data));
     })
 }
 
 #[bench]
 fn vectorized_rev_default(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_rev_default_version(&data));
+        test::black_box(vectorized_rev_default_version(data));
     })
 }
 
 #[bench]
 fn vectorized_rev_detect(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_rev(&data));
+        test::black_box(vectorized_rev(data));
     })
 }
 
 #[bench]
 fn vectorized_tree_default(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_tree_default_version(&data));
+        test::black_box(vectorized_tree_default_version(data));
     })
 }
 
 #[bench]
 fn vectorized_tree_detect(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_tree(&data));
+        test::black_box(vectorized_tree(data));
     })
 }
 
 #[bench]
 fn vectorize_default(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize_default_version(&data));
+        test::black_box(vectorize_default_version(data));
     });
 }
 
 #[bench]
 fn vectorize_detect(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize(&data));
+        test::black_box(vectorize(data));
     });
 }
 
 #[bench]
 fn vectorize_horizontal_default(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize_horizontal_default_version(&data));
+        test::black_box(vectorize_horizontal_default_version(data));
     });
 }
 
 #[bench]
 fn vectorize_horizontal_detect(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize_horizontal(&data));
+        test::black_box(vectorize_horizontal(data));
     });
 }
 
 #[bench]
 fn sum_vectorize_default(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(sum_vectorize_default_version(&data));
+        test::black_box(sum_vectorize_default_version(data));
     })
 }
 
 #[bench]
 fn sum_vectorize_detect(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(sum_vectorize(&data));
+        test::black_box(sum_vectorize(data));
     })
 }
 
 #[bench]
 fn vectorize_mut_default(b: &mut Bencher) {
-    let mut data = gen_data();
+    let (data, _) = gen_data();
+    let mut data = data.to_vec();
 
     b.iter(|| {
         test::black_box(vectorize_mut_default_version(&mut data));
@@ -237,7 +238,8 @@ fn vectorize_mut_default(b: &mut Bencher) {
 
 #[bench]
 fn vectorize_mut_detect(b: &mut Bencher) {
-    let mut data = gen_data();
+    let (data, _) = gen_data();
+    let mut data = data.to_vec();
 
     b.iter(|| {
         test::black_box(vectorize_mut(&mut data));
@@ -247,55 +249,55 @@ fn vectorize_mut_detect(b: &mut Bencher) {
 
 #[bench]
 fn sum_default(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(sum_default_version(&data));
+        test::black_box(sum_default_version(data));
     })
 }
 
 #[bench]
 fn sum_detect(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(sum(&data));
+        test::black_box(sum(data));
     })
 }
 
 #[bench]
 fn vectorized_horizontal_default(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_horizontal_default_version(&data));
+        test::black_box(vectorized_horizontal_default_version(data));
     })
 }
 
 #[bench]
 fn vectorized_horizontal_detect(b: &mut Bencher) {
-    let data = gen_vecs();
+    let (data, _) = gen_vecs();
 
     b.iter(|| {
-        test::black_box(vectorized_horizontal(&data));
+        test::black_box(vectorized_horizontal(data));
     })
 }
 
 #[bench]
 fn vectorize_pad_default(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize_pad_default_version(&data));
+        test::black_box(vectorize_pad_default_version(data));
     })
 }
 
 #[bench]
 fn vectorize_pad_detect(b: &mut Bencher) {
-    let data = gen_data();
+    let (data, _) = gen_data();
 
     b.iter(|| {
-        test::black_box(vectorize_pad(&data));
+        test::black_box(vectorize_pad(data));
     })
 }
 
@@ -307,12 +309,12 @@ fn manual_sse(b: &mut Bencher) {
 
     use crate::utils::gen_arch_vecs;
 
-    let data = gen_arch_vecs();
+    let (data, _) = gen_arch_vecs();
 
     b.iter(|| {
         unsafe {
             let mut result = arch::_mm_setzero_ps();
-            for v in &data {
+            for v in data {
                 result = arch::_mm_add_ps(result, *v);
             }
 

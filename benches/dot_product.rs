@@ -55,8 +55,7 @@ mv! {
 
 #[bench]
 fn simple(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
 
     b.iter(|| {
         let result: f32 = l.iter()
@@ -71,91 +70,81 @@ fn simple(b: &mut Bencher) {
 
 #[bench]
 fn vectorized_default(b: &mut Bencher) {
-    let l = gen_vecs();
-    let r = gen_vecs();
+    let (l, r) = gen_vecs();
     b.iter(|| {
-        test::black_box(vectorized_default_version(&l, &r));
+        test::black_box(vectorized_default_version(l, r));
     });
 }
 
 #[bench]
 fn vectorized_detect(b: &mut Bencher) {
-    let l = gen_vecs();
-    let r = gen_vecs();
+    let (l, r) = gen_vecs();
     b.iter(|| {
-        test::black_box(vectorized(&l, &r));
+        test::black_box(vectorized(l, r));
     });
 }
 
 #[bench]
 fn vectorized_idx_default(b: &mut Bencher) {
-    let l = gen_vecs();
-    let r = gen_vecs();
+    let (l, r) = gen_vecs();
     b.iter(|| {
-        test::black_box(vectorized_idx_default_version(&l, &r));
+        test::black_box(vectorized_idx_default_version(l, r));
     });
 }
 
 #[bench]
 fn vectorized_idx_detect(b: &mut Bencher) {
-    let l = gen_vecs();
-    let r = gen_vecs();
+    let (l, r) = gen_vecs();
     b.iter(|| {
-        test::black_box(vectorized_idx(&l, &r));
+        test::black_box(vectorized_idx(l, r));
     });
 }
 
 #[bench]
 fn vectorize_zip_default(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(vectorize_zip_default_version(&l, &r));
+        test::black_box(vectorize_zip_default_version(l, r));
     });
 }
 
 #[bench]
 fn vectorize_zip_detect(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(vectorize_zip(&l, &r));
+        test::black_box(vectorize_zip(l, r));
     });
 }
 
 #[bench]
 fn vectorize_tuple_default(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(vectorize_tuple_default_version(&l, &r));
+        test::black_box(vectorize_tuple_default_version(l, r));
     });
 }
 
 #[bench]
 fn vectorize_tuple_detect(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(vectorize_tuple(&l, &r));
+        test::black_box(vectorize_tuple(l, r));
     });
 }
 
 #[bench]
 fn packed_default(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(packed_default_version(&l, &r));
+        test::black_box(packed_default_version(l, r));
     });
 }
 
 #[bench]
 fn packed_detect(b: &mut Bencher) {
-    let l = gen_data();
-    let r = gen_data();
+    let (l, r) = gen_data();
     b.iter(|| {
-        test::black_box(packed(&l, &r));
+        test::black_box(packed(l, r));
     });
 }
 
@@ -167,8 +156,7 @@ fn manual_sse(b: &mut Bencher) {
 
     use crate::utils::gen_arch_vecs;
 
-    let l = gen_arch_vecs();
-    let r = gen_arch_vecs();
+    let (l, r) = gen_arch_vecs();
 
     b.iter(|| {
         unsafe {
@@ -191,8 +179,7 @@ fn manual_sse_fmadd(b: &mut Bencher) {
 
     use crate::utils::gen_arch_vecs;
 
-    let l = gen_arch_vecs();
-    let r = gen_arch_vecs();
+    let (l, r) = gen_arch_vecs();
 
     #[inline]
     #[target_feature(enable = "fma")]
@@ -209,7 +196,7 @@ fn manual_sse_fmadd(b: &mut Bencher) {
     if is_x86_feature_detected!("fma") {
         b.iter(|| {
             unsafe {
-                inner(&l, &r);
+                inner(l, r);
             }
         });
     }

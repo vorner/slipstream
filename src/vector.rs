@@ -166,13 +166,7 @@ macro_rules! vector_impl {
                     "Vector type too huge",
                 );
                 assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
-                let max_len = *idx.iter().max().expect("Must have max on indexes");
-                assert!(
-                    max_len < input.len(),
-                    "Gather out of bounds ({} >= {})",
-                    max_len,
-                    input.len(),
-                );
+                assert!(idx.iter().all(|&l| l < input.len()), "Gather out of bounds");
                 let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                 unsafe {
                     for i in 0..Self::LANES {
@@ -199,13 +193,7 @@ macro_rules! vector_impl {
                 let mask = mask.as_ref();
                 assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
                 assert_eq!(Self::LANES, mask.len(), "Gathering with wrong sized mask");
-                let max_len = *idx.iter().max().expect("Must have max on indexes");
-                assert!(
-                    max_len < input.len(),
-                    "Gather out of bounds ({} >= {})",
-                    max_len,
-                    input.len(),
-                );
+                assert!(idx.iter().all(|&l| l < input.len()), "Gather out of bounds");
                 unsafe {
                     for i in 0..Self::LANES {
                         if mask[i].bool() {
@@ -229,13 +217,7 @@ macro_rules! vector_impl {
                 assert_eq!(Self::LANES, idx.len(), "Scattering vector to wrong number of indexes");
                 // Check prior to starting the scatter before we write anything. Might be nicer for
                 // optimizer + we don't want to do partial scatter.
-                let max_len = *idx.iter().max().expect("Must have max on indexes");
-                assert!(
-                    max_len < output.len(),
-                    "Scatter out of bounds ({} >= {})",
-                    max_len,
-                    output.len(),
-                );
+                assert!(idx.iter().all(|&l| l < output.len()), "Scatter out of bounds");
                 for i in 0..Self::LANES {
                     unsafe {
                         // get_unchecked: index checked above in bulk and we use this one in hope
@@ -262,13 +244,7 @@ macro_rules! vector_impl {
                 assert_eq!(Self::LANES, mask.len(), "Scattering vector with wrong sized mask");
                 // Check prior to starting the scatter before we write anything. Might be nicer for
                 // optimizer + we don't want to do partial scatter.
-                let max_len = *idx.iter().max().expect("Must have max on indexes");
-                assert!(
-                    max_len < output.len(),
-                    "Scatter out of bounds ({} >= {})",
-                    max_len,
-                    output.len(),
-                );
+                assert!(idx.iter().all(|&l| l < output.len()), "Scatter out of bounds");
                 for i in 0..Self::LANES {
                     if mask[i].bool() {
                         unsafe {

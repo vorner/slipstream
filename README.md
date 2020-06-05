@@ -1,4 +1,4 @@
-# Impatient
+# Slipstream
 
 Trying to create a safe SIMD API that would be usable by masses, but still
 allowed reasonably fast results and offer things like runtime CPU detection.

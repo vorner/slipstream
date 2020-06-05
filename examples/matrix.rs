@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use multiversion::multiversion;
 use rand::random;
-use splitstream::prelude::*;
+use slipstream::prelude::*;
 
 const SIZE: usize = 1024;
 type V = wu32x8;

@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use test::Bencher;
 
 use crate::mv;
-use splitstream::prelude::*;
+use slipstream::prelude::*;
 
 type Bools = bx32;
 type Counts = u8x32;

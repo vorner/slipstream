@@ -3,7 +3,7 @@ use test::Bencher;
 
 use crate::mv;
 use crate::utils::{gen_data, gen_vecs, V};
-use splitstream::prelude::*;
+use slipstream::prelude::*;
 
 mv! {
     fn vectorized_idx(l: &[V], r: &[V]) -> f32 {

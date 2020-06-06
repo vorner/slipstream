@@ -116,6 +116,14 @@ mv! {
             .sum::<V>()
             .horizontal_sum()
     }
+
+    fn vectorize_split(data: &[f32]) -> f32 {
+        let len = data.len();
+        let rem = len % V::LANES;
+        let main = data[..len - rem].vectorize().sum::<V>().horizontal_sum();
+        let rem = data[len - rem..].iter().sum::<f32>();
+        main + rem
+    }
 }
 
 #[bench]
@@ -301,6 +309,24 @@ fn vectorize_pad_detect(b: &mut Bencher) {
 }
 
 #[bench]
+fn vectorize_split_default(b: &mut Bencher) {
+    let (data, _) = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_split_default_version(data));
+    })
+}
+
+#[bench]
+fn vectorize_split_detect(b: &mut Bencher) {
+    let (data, _) = gen_data();
+
+    b.iter(|| {
+        test::black_box(vectorize_split(data));
+    })
+}
+
+#[bench]
 #[cfg(target_arch = "x86_64")]
 fn manual_sse(b: &mut Bencher) {
     use core::arch::x86_64 as arch;
@@ -318,5 +344,27 @@ fn manual_sse(b: &mut Bencher) {
 
         let result: [f32; 4] = mem::transmute(result);
         test::black_box(result.iter().sum::<f32>());
+    })
+}
+
+#[bench]
+#[cfg(target_arch = "x86_64")]
+fn manual_sse_convert(b: &mut Bencher) {
+    use core::arch::x86_64 as arch;
+    use core::mem;
+
+    let (data, _) = gen_data();
+
+    b.iter(|| unsafe {
+        let mut result = arch::_mm_setzero_ps();
+        let iter = data.chunks_exact(4);
+        let remainder = iter.remainder().iter().sum::<f32>();
+        for v in iter {
+            result = arch::_mm_add_ps(result, arch::_mm_loadu_ps(v.as_ptr()));
+        }
+
+        let result: [f32; 4] = mem::transmute(result);
+        let result = result.iter().sum::<f32>() + remainder;
+        test::black_box(result);
     })
 }

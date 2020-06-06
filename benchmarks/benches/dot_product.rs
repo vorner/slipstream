@@ -39,6 +39,15 @@ mv! {
             .horizontal_sum()
     }
 
+    fn vectorize_tuple_for(l: &[f32], r: &[f32]) -> f32 {
+        let mut result = V::default();
+        for (l, r) in (l, r).vectorize() {
+            let (l, r): (V, V) = (l, r);
+            result += l * r;
+        }
+        result.horizontal_sum()
+    }
+
     fn packed(l: &[f32], r: &[f32]) -> f32 {
         type V = packed_simd::f32x16;
         let l = l.chunks_exact(16);
@@ -140,6 +149,22 @@ fn packed_detect(b: &mut Bencher) {
     let (l, r) = gen_data();
     b.iter(|| {
         test::black_box(packed(l, r));
+    });
+}
+
+#[bench]
+fn vectorize_tuple_for_default(b: &mut Bencher) {
+    let (l, r) = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_tuple_for_default_version(l, r));
+    });
+}
+
+#[bench]
+fn vectorize_tuple_for_detect(b: &mut Bencher) {
+    let (l, r) = gen_data();
+    b.iter(|| {
+        test::black_box(vectorize_tuple_for(l, r));
     });
 }
 

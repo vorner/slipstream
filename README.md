@@ -37,6 +37,85 @@ It goes well together with function multiversioning, see for example the
 More details can be found in the [documentation], including tips for effective
 use and what to try if the performance isn't as good as expected.
 
+## Example
+
+As a very simple example, imagine that the crux of the application's performance
+is summing a huge array of floats and we have this code:
+
+```rust
+fn compute(d: &[f32]) -> f32 {
+    d.iter().sum()
+}
+```
+
+Now, one could rewrite it to something like this, using manual vectorization:
+
+```rust
+use core::arch::x86_64 as arch;
+
+unsafe fn compute_sse(d: &[f32]) -> f32 {
+    let mut result = arch::_mm_setzero_ps();
+    let iter = data.chunks_exact(4);
+    let remainder = iter.remainder().iter().sum::<f32>();
+    for v in iter {
+        result = arch::_mm_add_ps(result, arch::_mm_loadu_ps(v.as_ptr()));
+    }
+
+    let result: [f32; 4] = mem::transmute(result);
+    let result = result.iter().sum::<f32>() + remainder;
+}
+```
+
+And while this does result in significant speedup, it's also much less readable,
+one has to allow using unsafe through the application logic and is not portable
+(it won't run on anything that's not Intel and it won't take advantage of newer
+and better vector instructions even there). These downside usually make it not
+worth pursuing for more complex algorithms.
+
+Using `slipstream`, one can also write this:
+
+```rust
+fn compute_slipstream(d: &[f32]) -> f32 {
+    // Will split the data into vectors of 4 lanes, padding the last one with
+    // the lanes from the provided parameter.
+    d.vectorize_pad(f32x4::default())
+        // Sum the vectors into a final vector
+        .sum::<f32x4>()
+        // Sum the lanes of the vectors together.
+        .horizontal_sum()
+}
+```
+
+This is still longer and more complex than the original, but seems much more
+manageable. It's also portable and will provide some speedup on platforms that
+don't have any vector instructions. Using the right annotations on the function,
+one is also able to generate multiple versions and dispatch the one that takes
+advantage of the newest and shiniest instructions the CPU supports at runtime.
+
+Corresponding benchmarks on i5-8265U suggest that this version comes close to
+the manual one. Indeed, there are similar variants that are even faster.
+
+```
+test sum::basic                               ... bench:  11,707,693 ns/iter (+/- 261,428)
+test sum::manual_sse_convert                  ... bench:   3,000,906 ns/iter (+/- 535,041)
+test sum::vectorize_pad_default               ... bench:   3,141,834 ns/iter (+/- 81,376)
+```
+
+Running this on a device with `aarch64` processor without NEON instructions (no
+SIMD support) still allows some optimizations, as seen here. Obviously, the
+manual SSE is not available there:
+
+```
+test sum::basic                               ... bench:  41,373,561 ns/iter (+/- 1,995,197)
+test sum::vectorize_pad_default               ... bench:  26,836,472 ns/iter (+/- 2,288,940)
+```
+
+Note: to re-run the benchmarks as above, use `type V = f32x4` in
+`benches/utils.rs`.
+
+Warning: Floats are not associative. The first, manual, version may produce
+slightly different results because of rounding errors.
+
 ## Help wanted
 
 It is an open source library and help in developing it is welcome. There are
@@ -76,6 +155,9 @@ some areal where Your contribution would be especially appreciated:
   to significantly inferior performance. Optimally, each such `unsafe` code
   would get replaced by safe code, or would get a comment explaining/proving
   that it is indeed safe.
+
+If you want to work on anything bigger, it's a good idea to open an issue on the
+repository to both discuss it first and to reserve the task.
 
 ## License
 

@@ -5,8 +5,8 @@ use core::ops::*;
 use core::ptr;
 use core::slice;
 
-use generic_array::ArrayLength;
 use crate::{inner, Vector};
+use generic_array::ArrayLength;
 
 #[derive(Debug)]
 pub struct MutProxy<'a, B, V>
@@ -48,7 +48,8 @@ where
 {
     #[inline]
     fn drop(&mut self) {
-        self.restore.copy_from_slice(&self.data.deref()[..self.restore.len()]);
+        self.restore
+            .copy_from_slice(&self.data.deref()[..self.restore.len()]);
     }
 }
 
@@ -160,7 +161,7 @@ where
             Some(partial)
         } else if self.left < self.right {
             self.right -= 1;
-            Some(unsafe { self.vectorizer.get(self.right)})
+            Some(unsafe { self.vectorizer.get(self.right) })
         } else {
             None
         }
@@ -171,13 +172,15 @@ impl<V, P, R> ExactSizeIterator for VectorizedIter<V, P, R>
 where
     V: Vectorizer<R>,
     P: Partial<R>,
-{ }
+{
+}
 
 impl<V, P, R> FusedIterator for VectorizedIter<V, P, R>
 where
     V: Vectorizer<R>,
     P: Partial<R>,
-{ }
+{
+}
 
 // TODO: Hide away the basic implementation?
 // TODO: Is it a good idea to have it like vec.vectorize()? Won't it create footguns on mut vector?
@@ -249,7 +252,10 @@ where
     #[inline]
     fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<V>) {
         let len = self.len();
-        assert!(len * mem::size_of::<B>() <= isize::MAX as usize, "Slice too huge");
+        assert!(
+            len * mem::size_of::<B>() <= isize::MAX as usize,
+            "Slice too huge"
+        );
         let rest = len % V::LANES;
         let main = len - rest;
         let start = self.as_ptr();
@@ -318,7 +324,10 @@ where
     #[inline]
     fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<MutProxy<'a, B, V>>) {
         let len = self.len();
-        assert!(len * mem::size_of::<B>() <= isize::MAX as usize, "Slice too huge");
+        assert!(
+            len * mem::size_of::<B>() <= isize::MAX as usize,
+            "Slice too huge"
+        );
         let rest = len % V::LANES;
         let main = len - rest;
         let start = self.as_mut_ptr();
@@ -327,10 +336,7 @@ where
             (_, Some(mut pad)) => {
                 let restore = &mut self[main..];
                 pad[..rest].copy_from_slice(restore);
-                Some(MutProxy {
-                    data: pad,
-                    restore,
-                })
+                Some(MutProxy { data: pad, restore })
             }
             _ => panic!(
                 "Data to vectorize not divisible by lanes ({} vs {})",
@@ -405,9 +411,33 @@ vectorizable_tuple!((A, AR, 0), (B, BR, 1));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3));
 vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4));
-vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5));
-vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6));
-vectorizable_tuple!((A, AR, 0), (B, BR, 1), (C, CR, 2), (D, DR, 3), (E, ER, 4), (F, FR, 5), (G, GR, 6), (H, HR, 7));
+vectorizable_tuple!(
+    (A, AR, 0),
+    (B, BR, 1),
+    (C, CR, 2),
+    (D, DR, 3),
+    (E, ER, 4),
+    (F, FR, 5)
+);
+vectorizable_tuple!(
+    (A, AR, 0),
+    (B, BR, 1),
+    (C, CR, 2),
+    (D, DR, 3),
+    (E, ER, 4),
+    (F, FR, 5),
+    (G, GR, 6)
+);
+vectorizable_tuple!(
+    (A, AR, 0),
+    (B, BR, 1),
+    (C, CR, 2),
+    (D, DR, 3),
+    (E, ER, 4),
+    (F, FR, 5),
+    (G, GR, 6),
+    (H, HR, 7)
+);
 
 macro_rules! vectorizable_arr {
     ($s: expr) => {
@@ -477,7 +507,6 @@ macro_rules! vectorizable_arr {
     }
 }
 
-vectorizable_arr!(0);
 vectorizable_arr!(1);
 vectorizable_arr!(2);
 vectorizable_arr!(3);
@@ -517,14 +546,13 @@ impl<'a, T> Vectorizer<&'a mut T> for &'a mut [T] {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::*;
     use super::*;
+    use crate::prelude::*;
 
     #[test]
     fn iter() {
         let data = (0..=10u16).collect::<Vec<_>>();
-        let vtotal: u16x8 = data.vectorize_pad(u16x8::default())
-            .sum();
+        let vtotal: u16x8 = data.vectorize_pad(u16x8::default()).sum();
         let total: u16 = vtotal.horizontal_sum();
         assert_eq!(total, 55);
     }
@@ -534,7 +562,9 @@ mod tests {
         let data = (0..33u32).collect::<Vec<_>>();
         let mut dst = [0u32; 33];
         let ones = u32x4::splat(1);
-        for (mut d, s) in (&mut dst[..], &data[..]).vectorize_pad((u32x4::default(), u32x4::default())) {
+        for (mut d, s) in
+            (&mut dst[..], &data[..]).vectorize_pad((u32x4::default(), u32x4::default()))
+        {
             *d = ones + s;
         }
 

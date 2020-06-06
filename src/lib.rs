@@ -8,24 +8,24 @@ use typenum::marker_traits::Unsigned;
 
 mod iterators;
 pub mod mask;
-pub mod vector;
 pub mod types;
+pub mod vector;
 
 pub use iterators::Vectorizable;
 pub use mask::Mask;
 pub use types::*;
 
 pub mod prelude {
+    pub use crate::types::*;
     pub use crate::Mask as _;
     pub use crate::Vector as _;
     pub use crate::Vectorizable as _;
-    pub use crate::types::*;
 }
 
 mod inner {
     use core::num::Wrapping;
 
-    use crate::mask::{m8, m16, m32, m64, m128, msize, Mask};
+    use crate::mask::{m128, m16, m32, m64, m8, msize, Mask};
 
     pub unsafe trait Repr: Send + Sync + Copy + 'static {
         type Mask: Mask;
@@ -149,6 +149,13 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     type Lanes: ArrayLength<Self::Base>;
     type Mask: AsRef<[<Self::Base as inner::Repr>::Mask]>;
     const LANES: usize = Self::Lanes::USIZE;
+
+    /// Load the vector without doing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// The pointed to memory must be valid in `Self::LANES` consecutive cells ‒ eg. it must
+    /// contain a full array of the base types.
     unsafe fn new_unchecked(input: *const Self::Base) -> Self;
 
     #[inline]
@@ -161,7 +168,8 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
             input.len(),
             Self::LANES,
             "Creating vector from the wrong sized slice (expected {}, got {})",
-            Self::LANES, input.len(),
+            Self::LANES,
+            input.len(),
         );
         unsafe { Self::new_unchecked(input.as_ptr()) }
     }

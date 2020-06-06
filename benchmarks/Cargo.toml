@@ -1,0 +1,21 @@
+[package]
+name = "benchmarks"
+version = "0.1.0"
+authors = ["Michal 'vorner' Vaner <vorner@vorner.cz>"]
+edition = "2018"
+publish = false
+autobenches = false
+
+[dependencies]
+
+[dev-dependencies]
+slipstream = { path = ".." }
+multiversion = "~0.5"
+once_cell = "~1"
+proptest = "~0.9"
+rand = "~0.7"
+packed_simd = "~0.3"
+
+[[bench]]
+name = "simple"
+path = "benches/simple.rs"

@@ -78,7 +78,8 @@ impl Life {
     fn step(&mut self) {
         for y in 1..self.edge - 1 {
             for x in 1..self.edge - 1 {
-                let cnt = NEIGHS.iter()
+                let cnt = NEIGHS
+                    .iter()
                     .filter(|&&(xd, yd)| {
                         self.get(((x as isize) + xd) as usize, ((y as isize) + yd) as usize)
                     })

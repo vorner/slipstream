@@ -246,7 +246,6 @@ fn vectorize_mut_detect(b: &mut Bencher) {
     })
 }
 
-
 #[bench]
 fn sum_default(b: &mut Bencher) {
     let (data, _) = gen_vecs();
@@ -311,15 +310,13 @@ fn manual_sse(b: &mut Bencher) {
 
     let (data, _) = gen_arch_vecs();
 
-    b.iter(|| {
-        unsafe {
-            let mut result = arch::_mm_setzero_ps();
-            for v in data {
-                result = arch::_mm_add_ps(result, *v);
-            }
-
-            let result: [f32; 4] = mem::transmute(result);
-            test::black_box(result.iter().sum::<f32>());
+    b.iter(|| unsafe {
+        let mut result = arch::_mm_setzero_ps();
+        for v in data {
+            result = arch::_mm_add_ps(result, *v);
         }
+
+        let result: [f32; 4] = mem::transmute(result);
+        test::black_box(result.iter().sum::<f32>());
     })
 }

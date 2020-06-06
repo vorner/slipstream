@@ -58,12 +58,7 @@ fn simple(b: &mut Bencher) {
     let (l, r) = gen_data();
 
     b.iter(|| {
-        let result: f32 = l.iter()
-            .zip(r.iter())
-            .map(|(&l, &r)| {
-                l * r
-            })
-            .sum();
+        let result: f32 = l.iter().zip(r.iter()).map(|(&l, &r)| l * r).sum();
         test::black_box(result);
     });
 }
@@ -158,16 +153,14 @@ fn manual_sse(b: &mut Bencher) {
 
     let (l, r) = gen_arch_vecs();
 
-    b.iter(|| {
-        unsafe {
-            let mut result = arch::_mm_setzero_ps();
-            for (&l, &r) in l.iter().zip(r.iter()) {
-                result = arch::_mm_add_ps(result, arch::_mm_mul_ps(l, r));
-            }
-
-            let result: [f32; 4] = mem::transmute(result);
-            test::black_box(result.iter().sum::<f32>());
+    b.iter(|| unsafe {
+        let mut result = arch::_mm_setzero_ps();
+        for (&l, &r) in l.iter().zip(r.iter()) {
+            result = arch::_mm_add_ps(result, arch::_mm_mul_ps(l, r));
         }
+
+        let result: [f32; 4] = mem::transmute(result);
+        test::black_box(result.iter().sum::<f32>());
     })
 }
 
@@ -194,10 +187,8 @@ fn manual_sse_fmadd(b: &mut Bencher) {
     }
 
     if is_x86_feature_detected!("fma") {
-        b.iter(|| {
-            unsafe {
-                inner(l, r);
-            }
+        b.iter(|| unsafe {
+            inner(l, r);
         });
     }
 }

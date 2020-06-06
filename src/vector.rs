@@ -1,7 +1,7 @@
 use core::iter::{Product, Sum};
 use core::mem::{self, MaybeUninit};
-use core::ptr;
 use core::ops::*;
+use core::ptr;
 
 use generic_array::{ArrayLength, GenericArray};
 use typenum::marker_traits::Unsigned;
@@ -47,7 +47,7 @@ macro_rules! bin_op_impl {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! una_op_impl {
@@ -75,7 +75,7 @@ macro_rules! una_op_impl {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! cmp_op {
@@ -98,7 +98,7 @@ macro_rules! cmp_op {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! vector_impl {
@@ -165,7 +165,11 @@ macro_rules! vector_impl {
                     isize::MAX as usize > mem::size_of::<Self>(),
                     "Vector type too huge",
                 );
-                assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
+                assert_eq!(
+                    Self::LANES,
+                    idx.len(),
+                    "Gathering vector from wrong number of indexes"
+                );
                 assert!(idx.iter().all(|&l| l < input.len()), "Gather out of bounds");
                 let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                 unsafe {
@@ -191,7 +195,11 @@ macro_rules! vector_impl {
                 let input = input.as_ref();
                 let idx = idx.as_ref();
                 let mask = mask.as_ref();
-                assert_eq!(Self::LANES, idx.len(), "Gathering vector from wrong number of indexes");
+                assert_eq!(
+                    Self::LANES,
+                    idx.len(),
+                    "Gathering vector from wrong number of indexes"
+                );
                 assert_eq!(Self::LANES, mask.len(), "Gathering with wrong sized mask");
                 assert!(idx.iter().all(|&l| l < input.len()), "Gather out of bounds");
                 unsafe {
@@ -214,10 +222,17 @@ macro_rules! vector_impl {
             {
                 let output = output.as_mut();
                 let idx = idx.as_ref();
-                assert_eq!(Self::LANES, idx.len(), "Scattering vector to wrong number of indexes");
+                assert_eq!(
+                    Self::LANES,
+                    idx.len(),
+                    "Scattering vector to wrong number of indexes"
+                );
                 // Check prior to starting the scatter before we write anything. Might be nicer for
                 // optimizer + we don't want to do partial scatter.
-                assert!(idx.iter().all(|&l| l < output.len()), "Scatter out of bounds");
+                assert!(
+                    idx.iter().all(|&l| l < output.len()),
+                    "Scatter out of bounds"
+                );
                 for i in 0..Self::LANES {
                     unsafe {
                         // get_unchecked: index checked above in bulk and we use this one in hope
@@ -240,11 +255,22 @@ macro_rules! vector_impl {
                 let output = output.as_mut();
                 let idx = idx.as_ref();
                 let mask = mask.as_ref();
-                assert_eq!(Self::LANES, idx.len(), "Scattering vector to wrong number of indexes");
-                assert_eq!(Self::LANES, mask.len(), "Scattering vector with wrong sized mask");
+                assert_eq!(
+                    Self::LANES,
+                    idx.len(),
+                    "Scattering vector to wrong number of indexes"
+                );
+                assert_eq!(
+                    Self::LANES,
+                    mask.len(),
+                    "Scattering vector with wrong sized mask"
+                );
                 // Check prior to starting the scatter before we write anything. Might be nicer for
                 // optimizer + we don't want to do partial scatter.
-                assert!(idx.iter().all(|&l| l < output.len()), "Scatter out of bounds");
+                assert!(
+                    idx.iter().all(|&l| l < output.len()),
+                    "Scatter out of bounds"
+                );
                 for i in 0..Self::LANES {
                     if mask[i].bool() {
                         unsafe {
@@ -262,7 +288,7 @@ macro_rules! vector_impl {
             fn blend<M, MB>(self, other: Self, mask: M) -> Self
             where
                 M: AsRef<[MB]>,
-                MB: Mask
+                MB: Mask,
             {
                 let mut result = MaybeUninit::<GenericArray<B, S>>::uninit();
                 let mask = mask.as_ref();
@@ -270,11 +296,7 @@ macro_rules! vector_impl {
                     for i in 0..Self::LANES {
                         ptr::write(
                             result.as_mut_ptr().cast::<B>().add(i),
-                            if mask[i].bool() {
-                                other[i]
-                            } else {
-                                self[i]
-                            }
+                            if mask[i].bool() { other[i] } else { self[i] },
                         );
                     }
                     Self {
@@ -466,9 +488,10 @@ macro_rules! vector_impl {
         {
             type Padding = ();
             type Vectorizer = &'a mut [$name<B, S>];
-            fn create(self, _pad: Option<()>)
-                -> (Self::Vectorizer, usize, Option<&'a mut $name<B, S>>)
-            {
+            fn create(
+                self,
+                _pad: Option<()>,
+            ) -> (Self::Vectorizer, usize, Option<&'a mut $name<B, S>>) {
                 let len = self.len();
                 (self, len, None)
             }
@@ -487,7 +510,7 @@ macro_rules! vector_impl {
 
         una_op_impl!($name, Neg, neg);
         una_op_impl!($name, Not, not);
-    }
+    };
 }
 
 vector_impl!(Packed1, 1);

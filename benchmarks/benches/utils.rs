@@ -20,14 +20,12 @@ macro_rules! mv {
     };
 }
 
-pub(crate) const SIZE: usize = 10*1024*1024;
+pub(crate) const SIZE: usize = 10 * 1024 * 1024;
 pub(crate) type V = slipstream::f32x16;
 
 pub(crate) fn gen_data() -> (&'static [f32], &'static [f32]) {
     fn inner() -> Vec<f32> {
-        iter::repeat_with(rand::random)
-            .take(SIZE)
-            .collect()
+        iter::repeat_with(rand::random).take(SIZE).collect()
     }
     static CACHED: Lazy<(Vec<f32>, Vec<f32>)> = Lazy::new(|| (inner(), inner()));
     (&CACHED.0, &CACHED.1)
@@ -49,11 +47,11 @@ pub(crate) fn gen_arch_vecs() -> (&'static [__m128], &'static [__m128]) {
     fn inner() -> Vec<__m128> {
         use core::arch::x86_64 as arch;
         iter::repeat_with(|| {
-                let v: [f32; 4] = rand::random();
-                unsafe { arch::_mm_loadu_ps(v.as_ptr()) }
-            })
-            .take(SIZE / 4)
-            .collect()
+            let v: [f32; 4] = rand::random();
+            unsafe { arch::_mm_loadu_ps(v.as_ptr()) }
+        })
+        .take(SIZE / 4)
+        .collect()
     }
 
     static CACHED: Lazy<(Vec<__m128>, Vec<__m128>)> = Lazy::new(|| (inner(), inner()));

@@ -46,7 +46,7 @@ macro_rules! trait_impl {
                 (self.0).$ma(rhs.0)
             }
         }
-    }
+    };
 }
 
 trait_impl!(BitAnd, bitand, BitAndAssign, bitand_assign);

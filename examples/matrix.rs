@@ -1,8 +1,5 @@
-#![feature(test)]
-extern crate test;
-
-use std::iter;
 use std::fmt::Display;
+use std::iter;
 use std::num::Wrapping;
 use std::ops::Mul;
 use std::time::Instant;
@@ -26,7 +23,12 @@ fn at(x: usize, y: usize) -> usize {
 
 impl Matrix {
     fn random() -> Self {
-        Self(iter::repeat_with(random).map(Wrapping).take(SIZE * SIZE).collect())
+        Self(
+            iter::repeat_with(random)
+                .map(Wrapping)
+                .take(SIZE * SIZE)
+                .collect(),
+        )
     }
 
     #[multiversion]
@@ -46,7 +48,8 @@ impl Matrix {
             offsets[i] = base_offsets + O::splat(i * L * SIZE);
         }
 
-        for x in 0..SIZE { // Across columns
+        // Across columns
+        for x in 0..SIZE {
             // The gather_load is likely slower than just vectorizing the row, so we do this less
             // often and just once for each column instead of each time.
             let local_offsets = O::splat(x);
@@ -54,7 +57,8 @@ impl Matrix {
                 *col = V::gather_load(&rhs.0, off + local_offsets);
             }
 
-            for y in 0..SIZE { // Across rows
+            // Across rows
+            for y in 0..SIZE {
                 let row_start = at(0, y);
                 output[at(x, y)] = dot_prod(&self.0[row_start..row_start + SIZE], &column);
             }
@@ -64,7 +68,11 @@ impl Matrix {
 }
 
 #[multiversion]
-#[specialize(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma", fn = "dot_prod_avx", unsafe = true)]
+#[specialize(
+    target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma",
+    fn = "dot_prod_avx",
+    unsafe = true
+)]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
 #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
 fn dot_prod(row: &[Wrapping<u32>], column: &[V]) -> Wrapping<u32> {
@@ -102,7 +110,7 @@ impl Mul for &'_ Matrix {
 
 fn timed<N: Display, R, F: FnOnce() -> R>(name: N, f: F) -> R {
     let now = Instant::now();
-    let result = test::black_box(f());
+    let result = f();
     println!("{} took:\t{:?}", name, now.elapsed());
     result
 }

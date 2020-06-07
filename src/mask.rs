@@ -4,7 +4,21 @@ mod inner {
     pub trait Sealed {}
 }
 
-pub trait Mask: Copy + Eq + Send + Sync + inner::Sealed + 'static {
+pub trait Mask:
+    Copy
+    + Eq
+    + Send
+    + Sync
+    + inner::Sealed
+    + Not
+    + BitAnd
+    + BitAndAssign
+    + BitOr
+    + BitOrAssign
+    + BitXor
+    + BitXorAssign
+    + 'static
+{
     const TRUE: Self;
     const FALSE: Self;
 

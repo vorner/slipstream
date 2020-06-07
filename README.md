@@ -87,10 +87,11 @@ fn compute_slipstream(d: &[f32]) -> f32 {
 ```
 
 This is still longer and more complex than the original, but seems much more
-manageable. It's also portable and will provide some speedup on platforms that
-don't have any vector instructions. Using the right annotations on the function,
-one is also able to generate multiple versions and dispatch the one that takes
-advantage of the newest and shiniest instructions the CPU supports at runtime.
+manageable than the manual version. It's also portable and might provide some
+speedup on platforms that don't have any vector instructions. Using the right
+annotations on the function, one is also able to generate multiple versions and
+dispatch the one that takes advantage of the newest and shiniest instructions
+the CPU supports at runtime.
 
 Corresponding benchmarks on i5-8265U suggest that this version comes close to
 the manual one. Indeed, there are similar variants that are even faster.
@@ -99,15 +100,6 @@ the manual one. Indeed, there are similar variants that are even faster.
 test sum::basic                               ... bench:  11,707,693 ns/iter (+/- 261,428)
 test sum::manual_sse_convert                  ... bench:   3,000,906 ns/iter (+/- 535,041)
 test sum::vectorize_pad_default               ... bench:   3,141,834 ns/iter (+/- 81,376)
-```
-
-Running this on a device with `aarch64` processor without NEON instructions (no
-SIMD support) still allows some optimizations, as seen here. Obviously, the
-manual SSE is not available there:
-
-```
-test sum::basic                               ... bench:  41,373,561 ns/iter (+/- 1,995,197)
-test sum::vectorize_pad_default               ... bench:  26,836,472 ns/iter (+/- 2,288,940)
 ```
 
 Note: to re-run the benchmarks as above, use `type V = f32x4` in

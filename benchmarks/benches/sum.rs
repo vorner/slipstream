@@ -327,44 +327,54 @@ fn vectorize_split_detect(b: &mut Bencher) {
 }
 
 #[bench]
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn manual_sse(b: &mut Bencher) {
-    use core::arch::x86_64 as arch;
     use core::mem;
 
+    use crate::utils::arch::{self, __m128};
     use crate::utils::gen_arch_vecs;
 
     let (data, _) = gen_arch_vecs();
 
-    b.iter(|| unsafe {
+    // Note: this is technically not correct on the x86 target, we should check first, but who
+    // cares in benchmarks.
+    #[target_feature(enable = "sse")]
+    unsafe fn inner(d: &[__m128]) -> f32 {
         let mut result = arch::_mm_setzero_ps();
-        for v in data {
+        for v in d {
             result = arch::_mm_add_ps(result, *v);
         }
 
         let result: [f32; 4] = mem::transmute(result);
-        test::black_box(result.iter().sum::<f32>());
-    })
+        result.iter().sum::<f32>()
+    }
+
+    b.iter(|| test::black_box(unsafe { inner(data) }))
 }
 
 #[bench]
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn manual_sse_convert(b: &mut Bencher) {
-    use core::arch::x86_64 as arch;
     use core::mem;
+
+    use crate::utils::arch;
 
     let (data, _) = gen_data();
 
-    b.iter(|| unsafe {
+    // Note: this is technically not correct on the x86 target, we should check first, but who
+    // cares in benchmarks.
+    #[target_feature(enable = "sse")]
+    unsafe fn inner(d: &[f32]) -> f32 {
         let mut result = arch::_mm_setzero_ps();
-        let iter = data.chunks_exact(4);
+        let iter = d.chunks_exact(4);
         let remainder = iter.remainder().iter().sum::<f32>();
         for v in iter {
             result = arch::_mm_add_ps(result, arch::_mm_loadu_ps(v.as_ptr()));
         }
 
         let result: [f32; 4] = mem::transmute(result);
-        let result = result.iter().sum::<f32>() + remainder;
-        test::black_box(result);
-    })
+        result.iter().sum::<f32>() + remainder
+    }
+
+    b.iter(|| test::black_box(unsafe { inner(data) }))
 }

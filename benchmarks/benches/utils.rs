@@ -1,5 +1,7 @@
 #[cfg(target_arch = "x86_64")]
-use core::arch::x86_64::__m128;
+pub use core::arch::x86_64::{self as arch, __m128};
+#[cfg(target_arch = "x86")]
+pub use core::arch::x86::{self as arch, __m128};
 use std::iter;
 
 use once_cell::sync::Lazy;
@@ -21,7 +23,7 @@ macro_rules! mv {
 }
 
 pub(crate) const SIZE: usize = 10 * 1024 * 1024;
-pub(crate) type V = slipstream::f32x16;
+pub(crate) type V = slipstream::f32x4;
 
 pub(crate) fn gen_data() -> (&'static [f32], &'static [f32]) {
     fn inner() -> Vec<f32> {
@@ -42,10 +44,9 @@ pub(crate) fn gen_vecs() -> (&'static [V], &'static [V]) {
     (&CACHED.0, &CACHED.1)
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 pub(crate) fn gen_arch_vecs() -> (&'static [__m128], &'static [__m128]) {
     fn inner() -> Vec<__m128> {
-        use core::arch::x86_64 as arch;
         iter::repeat_with(|| {
             let v: [f32; 4] = rand::random();
             unsafe { arch::_mm_loadu_ps(v.as_ptr()) }

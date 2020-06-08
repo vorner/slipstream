@@ -195,19 +195,18 @@ macro_rules! vector_impl {
                 let input = input.as_ref();
                 let idx = idx.as_ref();
                 let mask = mask.as_ref();
+                let len = idx.len();
                 assert_eq!(
                     Self::LANES,
-                    idx.len(),
+                    len,
                     "Gathering vector from wrong number of indexes"
                 );
                 assert_eq!(Self::LANES, mask.len(), "Gathering with wrong sized mask");
-                assert!(idx.iter().all(|&l| l < input.len()), "Gather out of bounds");
-                unsafe {
-                    for i in 0..Self::LANES {
-                        if mask[i].bool() {
+                for i in 0..Self::LANES {
+                    unsafe {
+                        if mask.get_unchecked(i).bool() {
                             let idx = *idx.get_unchecked(i);
-                            let input = *input.get_unchecked(idx);
-                            self[i] = input;
+                            self[i] = input[idx];
                         }
                     }
                 }
@@ -267,10 +266,13 @@ macro_rules! vector_impl {
                 );
                 // Check prior to starting the scatter before we write anything. Might be nicer for
                 // optimizer + we don't want to do partial scatter.
-                assert!(
-                    idx.iter().all(|&l| l < output.len()),
-                    "Scatter out of bounds"
-                );
+                let in_bounds = idx
+                    .iter()
+                    .enumerate()
+                    .all(|(i, &l)| {
+                        !mask[i].bool() || l < output.len()
+                    });
+                assert!(in_bounds, "Scatter out of bounds");
                 for i in 0..Self::LANES {
                     if mask[i].bool() {
                         unsafe {
@@ -584,6 +586,9 @@ mod tests {
         let mut out = [0; 10];
         V::new([1, 2, 3, 4]).scatter_store(&mut out, [0, 1, 2]);
     }
+
+    // TODO: Tests for out of bounds index on masked loads/stores + tests for index out of bound
+    // but disabled by the mask
 
     const T: m32 = m32::TRUE;
     const F: m32 = m32::FALSE;

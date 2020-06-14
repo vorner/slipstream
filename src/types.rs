@@ -1,3 +1,11 @@
+//! Type aliases of the commonly used vector types.
+//!
+//! While the vector types are created from the [`Packed?`][Packed2] by setting the base type and
+//! length, this is seldom done in downstream code. Instead, this module provides the commonly used
+//! types as aliases, like [u16x8]. See the [crate introduction](crate) for further details about the
+//! naming convention.
+//!
+//! All these types are also exported as part of the [`prelude`][crate::prelude].
 use core::num::Wrapping;
 
 use typenum::consts::*;
@@ -73,9 +81,6 @@ pub type wu64x2 = Packed16<Wrapping<u64>, U2>;
 pub type wu64x4 = Packed32<Wrapping<u64>, U4>;
 pub type wu64x8 = Packed32<Wrapping<u64>, U8>;
 pub type wu64x16 = Packed32<Wrapping<u64>, U16>;
-
-// TODO: u/i not wrapping
-// TODO: usize vectors ‒ alignments based on arch
 
 pub type i8x2 = Packed2<i8, U2>;
 pub type i8x4 = Packed4<i8, U4>;

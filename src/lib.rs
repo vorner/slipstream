@@ -449,8 +449,7 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     /// Masks are vector types of boolean-like base types. They are used as results of lane-wise
     /// comparisons like [`eq`][Vector::eq] and for enabling subsets of lanes for certain
     /// operations, like [`blend`][Vector::blend] and
-    /// [`gather_load_masked`][Vector::gather_load_masked].  same bit width as the base type of
-    /// their vectors
+    /// [`gather_load_masked`][Vector::gather_load_masked].
     ///
     /// This associated types describes the native mask for the given vector. For example for
     /// [`u32x4`] it would be [`m32x4`]. This is the type that the comparisons produce. While the

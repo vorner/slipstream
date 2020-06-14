@@ -113,9 +113,12 @@ impl<V> Partial<V> for Option<V> {
 
 #[doc(hidden)]
 pub trait Vectorizer<R> {
-    // Safety:
-    // idx in range
-    // will be called at most once for each idx
+    /// Get the nth vector.
+    ///
+    /// # Safety
+    ///
+    /// * idx must be in range (as declared on creation).
+    /// * It may be called at most once per each index.
     unsafe fn get(&mut self, idx: usize) -> R;
 }
 

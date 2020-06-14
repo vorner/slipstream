@@ -264,7 +264,7 @@ use core::ops::*;
 use generic_array::ArrayLength;
 use typenum::marker_traits::Unsigned;
 
-mod iterators;
+pub mod iterators;
 pub mod mask;
 pub mod types;
 pub mod vector;
@@ -289,6 +289,12 @@ mod inner {
 
     use crate::mask::{m128, m16, m32, m64, m8, msize, Mask};
 
+    /// A trait to enable vectors to use this type as the base type.
+    ///
+    /// This is in a private module to prevent users creating their own „crazy“ vector
+    /// implementations. We make some non-trivial assumptions about the inner types and be are
+    /// conservative at least until we figure out what *exact* assumptions these are and formalize
+    /// them.
     pub unsafe trait Repr: Send + Sync + Copy + 'static {
         type Mask: Mask;
         const ONE: Self;

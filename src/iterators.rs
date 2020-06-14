@@ -1,3 +1,25 @@
+//! The [`Vectorizable`] trait and a lot of its service types.
+//!
+//! The [`Vectorizable`] trait allows to turning slices of base types to iterators of vectors, both
+//! in separation and in tandem. The rest of this module provides the related types and traits.
+//!
+//! Usually, it is enough to bring in the [`prelude`][crate::prelude], which already contains the
+//! trait. It is seldom necessary to interact with this module directly.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use slipstream::prelude::*;
+//!
+//! fn double(input: &[u32], output: &mut [u32]) {
+//!     let two = u32x8::splat(2);
+//!     for (i, mut o) in (input, output).vectorize() {
+//!         *o = two * i;
+//!     }
+//! }
+//! # double(&[], &mut [])
+//! ```
+
 use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem::{self, MaybeUninit};
@@ -8,6 +30,15 @@ use core::slice;
 use crate::{inner, Vector};
 use generic_array::ArrayLength;
 
+/// A proxy object for iterating over mutable slices.
+///
+/// For technical reasons (mostly alignment and padding), it's not possible to return a simple
+/// reference. This type is returned instead and it can be used to both read and write the vectors
+/// a slice is turned into.
+///
+/// Note that the data are written in the destructor. Usually, this should not matter, but if you
+/// [`forget`][mem::forget], the changes will be lost (this is meant as a warning, not as a way to
+/// implement poor-man's transactions).
 #[derive(Debug)]
 pub struct MutProxy<'a, B, V>
 where
@@ -53,7 +84,7 @@ where
     }
 }
 
-// TODO: Hide away inside inner
+#[doc(hidden)]
 pub trait Partial<V> {
     fn take_partial(&mut self) -> Option<V>;
     fn size(&self) -> usize;
@@ -79,7 +110,8 @@ impl<V> Partial<V> for Option<V> {
         self.is_some() as usize
     }
 }
-// TODO: Hide away
+
+#[doc(hidden)]
 pub trait Vectorizer<R> {
     // Safety:
     // idx in range
@@ -87,6 +119,13 @@ pub trait Vectorizer<R> {
     unsafe fn get(&mut self, idx: usize) -> R;
 }
 
+/// The iterator returned by methods on [`Vectorizable`].
+///
+/// While it's unusual to need to *name* the type, this is the thing that is returned from
+/// [`Vectorizable::vectorize`] and [`Vectorizable::vectorize_pad`]. It might be of interest to
+/// know that it implements several iterator „extensions“ ([`DoubleEndedIterator`],
+/// [`ExactSizeIterator`] and [`FusedIterator`]). Also, several methods are optimized ‒ for
+/// example, the `count` is constant time operation, while the generic is linear.
 #[derive(Copy, Clone, Debug)]
 pub struct VectorizedIter<V, P, R> {
     partial: P,
@@ -182,13 +221,104 @@ where
 {
 }
 
-// TODO: Hide away the basic implementation?
-// TODO: Is it a good idea to have it like vec.vectorize()? Won't it create footguns on mut vector?
+/// A trait describing things with direct support for splitting into vectors.
+///
+/// This supports vectorized iteration over shared and mutable slices as well as types composed of
+/// them (tuples and short fixed-sized arrays).
+///
+/// Note that, unlike normal iterators, shared slices return owned values (vectors) and mutable
+/// slices return [proxy objects][MutProxy] that allow writing the data back. It is not possible to
+/// directly borrow from the slice because of alignment. The tuples and arrays return tuples and
+/// arrays of the inner values.
+///
+/// Already pre-vectorized inputs are also supported (this is useful in combination with other not
+/// vectorized inputs).
+///
+/// # Type hints
+///
+/// Oftentimes, the compiler can infer the type of the base type, but not the length of the vector.
+/// It is therefore needed to provide a type hint.
+///
+/// Furthermore, for tuples and arrays, the inner type really needs to be the slice, not something
+/// that can coerce into it (eg. vec or array).
+///
+/// # Examples
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let data = [1, 2, 3, 4];
+/// let v = data.vectorize().collect::<Vec<u32x2>>();
+/// assert_eq!(vec![u32x2::new([1, 2]), u32x2::new([3, 4])], v);
+/// ```
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let data = [1, 2, 3, 4];
+/// for v in data.vectorize() {
+///     let v: u32x2 = v; // Type hint
+///     println!("{:?}", v);
+/// }
+/// ```
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let input = [1, 2, 3, 4];
+/// let mut output = [0; 4];
+/// let mul = u32x2::splat(2);
+/// // We have to force the coercion to slice by [..]
+/// for (i, mut o) in (&input[..], &mut output[..]).vectorize() {
+///     *o = mul * i;
+/// }
+/// assert_eq!(output, [2, 4, 6, 8]);
+/// ```
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let vectorized = [u32x2::new([1, 2]), u32x2::new([3, 4])];
+/// let not_vectorized = [1, 2, 3, 4];
+/// for (v, n) in (&vectorized[..], &not_vectorized[..]).vectorize() {
+///     assert_eq!(v, n);
+/// }
+/// ```
 pub trait Vectorizable<V>: Sized {
+    /// The input type provided by user to fill in the padding/uneven end.
+    ///
+    /// Note that this doesn't necessarily have to be the same type as the type returned by the
+    /// resulting iterator. For example, in case of mutable slices, the input is the vector, while
+    /// the output is [`MutProxy`].
     type Padding;
+
+    /// An internal type managing the splitting into vectors.
+    ///
+    /// Not of direct interest of the users of this crate.
     type Vectorizer: Vectorizer<V>;
+
+    /// Internal method to create the vectorizer and kick of the iteration.
     fn create(self, pad: Option<Self::Padding>) -> (Self::Vectorizer, usize, Option<V>);
 
+    /// Vectorize a slice or composite of slices
+    ///
+    /// This variant assumes the input is divisible by the size of the vector. Prefer this if
+    /// possible over [`vectorize_pad`][Vectorizable::vectorize_pad], as it is usually
+    /// significantly faster.
+    ///
+    /// # Panics
+    ///
+    /// * If the slice length isn't divisible by the vector size.
+    /// * If the parts of the composite produce different number of vectors. It is not mandated for
+    ///   the slices to be of equal length, only to produce the same number of vectors.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use slipstream::prelude::*;
+    /// let longer = [1, 2, 3, 4, 5, 6, 7, 8];
+    /// let shorter = [1, 2, 3, 4];
+    /// for i in (&shorter[..], &longer[..]).vectorize() {
+    ///     let (s, l): (u32x2, u32x4) = i;
+    ///     println!("s: {:?}, l: {:?})", s, l);
+    /// }
+    /// ```
     #[inline]
     fn vectorize(self) -> VectorizedIter<Self::Vectorizer, (), V> {
         let (vectorizer, len, partial) = self.create(None);
@@ -202,6 +332,30 @@ pub trait Vectorizable<V>: Sized {
         }
     }
 
+    /// Vectorizes a slice or composite of slices, padding the odd end if needed.
+    ///
+    /// While the [`vectorize`][Vectorizable::vectorize] assumes the input can be split into
+    /// vectors without leftover, this version deals with the uneven rest by producing a padding
+    /// vector (if needed). The unused lanes are taken from the `pad` parameter. This is at the
+    /// cost of some performance (TODO: figure out why it is so much slower).
+    ///
+    /// For mutable slices, padding is used as usual, but the added lanes are not stored anywhere.
+    ///
+    /// The padding is produced at the end.
+    ///
+    /// In case of composites, this still assumes they produce the same number of full vectors and
+    /// that they all either do or don't need a padding.
+    ///
+    /// # Panics
+    ///
+    /// If the above assumption about number of vectors and same padding behaviour is violated.
+    ///
+    /// ```rust
+    /// # use slipstream::prelude::*;
+    /// let data = [1, 2, 3, 4, 5, 6];
+    /// let v = data.vectorize_pad(i32x4::splat(-1)).collect::<Vec<_>>();
+    /// assert_eq!(v, vec![i32x4::new([1, 2, 3, 4]), i32x4::new([5, 6, -1, -1])]);
+    /// ```
     #[inline]
     fn vectorize_pad(self, pad: Self::Padding) -> VectorizedIter<Self::Vectorizer, Option<V>, V> {
         let (vectorizer, len, partial) = self.create(Some(pad));
@@ -215,6 +369,7 @@ pub trait Vectorizable<V>: Sized {
     }
 }
 
+#[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
 pub struct ReadVectorizer<'a, B, V> {
     start: *const B,
@@ -280,6 +435,7 @@ where
     }
 }
 
+#[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
 pub struct WriteVectorizer<'a, B, V> {
     start: *mut B,

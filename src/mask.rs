@@ -141,6 +141,7 @@ impl<I: Not<Output = I>> Not for MaskWrapper<I> {
     }
 }
 
+#[allow(missing_docs)]
 pub type m8 = MaskWrapper<u8>;
 
 impl inner::Sealed for m8 {}
@@ -150,6 +151,7 @@ impl Mask for m8 {
     const FALSE: Self = MaskWrapper(0);
 }
 
+#[allow(missing_docs)]
 pub type m16 = MaskWrapper<u16>;
 
 impl inner::Sealed for m16 {}
@@ -159,6 +161,7 @@ impl Mask for m16 {
     const FALSE: Self = MaskWrapper(0);
 }
 
+#[allow(missing_docs)]
 pub type m32 = MaskWrapper<u32>;
 
 impl inner::Sealed for m32 {}
@@ -168,6 +171,7 @@ impl Mask for m32 {
     const FALSE: Self = MaskWrapper(0);
 }
 
+#[allow(missing_docs)]
 pub type m64 = MaskWrapper<u64>;
 
 impl inner::Sealed for m64 {}
@@ -177,6 +181,7 @@ impl Mask for m64 {
     const FALSE: Self = MaskWrapper(0);
 }
 
+#[allow(missing_docs)]
 pub type m128 = MaskWrapper<u128>;
 
 impl inner::Sealed for m128 {}
@@ -186,6 +191,7 @@ impl Mask for m128 {
     const FALSE: Self = MaskWrapper(0);
 }
 
+#[allow(missing_docs)]
 pub type msize = MaskWrapper<usize>;
 
 impl inner::Sealed for msize {}

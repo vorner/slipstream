@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Type aliases of the commonly used vector types.
 //!
 //! While the vector types are created from the [`Packed?`][Packed2] by setting the base type and

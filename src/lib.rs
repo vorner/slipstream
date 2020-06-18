@@ -2,7 +2,7 @@
     html_root_url = "https://docs.rs/slipstream/0.1.0/slipstream/",
     test(attr(deny(warnings))),
 )]
-// TODO: Enable this? #![deny(missing_docs, warnings)]
+#![deny(missing_docs, warnings)]
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
 

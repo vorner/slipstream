@@ -765,6 +765,44 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
         Self::Base: Mul<Output = Self::Base>;
 }
 
+/// Free-standing version of [`Vectorizable::vectorize`].
+///
+/// This is the same as `a.vectorize()`. Nevertheless, this version might be more convenient as it
+/// allows hinting the result vector type with turbofish.
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let data = [1, 2, 3, 4];
+/// for v in slipstream::vectorize::<u32x2, _>(&data[..]) {
+///     println!("{:?}", v);
+/// }
+/// ```
+#[inline]
+pub fn vectorize<V, A>(a: A) -> impl Iterator<Item = V>
+where
+    A: Vectorizable<V>,
+{
+    a.vectorize()
+}
+
+/// Free-standing version of [`Vectorizable::vectorize_pad`].
+///
+/// Equivalent to `a.vectorize_pad(pad)`, but may be more convenient or readable in certain cases.
+///
+/// ```rust
+/// # use slipstream::prelude::*;
+/// let data = [1, 2, 3, 4, 5, 6];
+/// let v = slipstream::vectorize_pad(&data[..], i32x4::splat(-1)).collect::<Vec<_>>();
+/// assert_eq!(v, vec![i32x4::new([1, 2, 3, 4]), i32x4::new([5, 6, -1, -1])]);
+/// ```
+#[inline]
+pub fn vectorize_pad<V, A>(a: A, pad: A::Padding) -> impl Iterator<Item = V>
+where
+    A: Vectorizable<V>,
+{
+    a.vectorize_pad(pad)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;

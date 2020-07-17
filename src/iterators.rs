@@ -245,6 +245,9 @@ where
 /// Furthermore, for tuples and arrays, the inner type really needs to be the slice, not something
 /// that can coerce into it (eg. vec or array).
 ///
+/// Alternatively, you can use the free-standing functions [`vectorize`][crate::vectorize] and
+/// [`vectorize_pad`][crate::vectorize_pad]. It allows using the turbofish to provide the hint.
+///
 /// # Examples
 ///
 /// ```rust

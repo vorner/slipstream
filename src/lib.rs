@@ -1,5 +1,5 @@
 #![doc(
-    html_root_url = "https://docs.rs/slipstream/0.1.0/slipstream/",
+    html_root_url = "https://docs.rs/slipstream/0.1.1/slipstream/",
     test(attr(deny(warnings))),
 )]
 #![deny(missing_docs, warnings)]

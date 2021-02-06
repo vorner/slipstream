@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1612642858297,
+  "lastUpdate": 1612643327399,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -87,6 +87,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 499253,
             "range": "± 17635",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f47ef665d80529b54a59fdaa3b7a4aa76517f237",
+          "message": "Merge pull request #6 from vorner/constgen\n\nMigrate to GH actions",
+          "timestamp": "2021-02-06T21:24:38+01:00",
+          "tree_id": "ccf4fe070645219401d05de7f3aa678e856e8579",
+          "url": "https://github.com/vorner/slipstream/commit/f47ef665d80529b54a59fdaa3b7a4aa76517f237"
+        },
+        "date": 1612643326779,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 68719,
+            "range": "± 69",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 548471,
+            "range": "± 253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 128910,
+            "range": "± 1862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 548595,
+            "range": "± 3102",
             "unit": "ns/iter"
           }
         ]

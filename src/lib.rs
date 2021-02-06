@@ -1,7 +1,4 @@
-#![doc(
-    html_root_url = "https://docs.rs/slipstream/0.1.1/slipstream/",
-    test(attr(deny(warnings))),
-)]
+#![doc(test(attr(deny(warnings))))]
 #![deny(missing_docs, warnings)]
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
@@ -755,7 +752,6 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
     fn horizontal_sum(self) -> Self::Base
     where
         Self::Base: Add<Output = Self::Base>;
-
 
     /// Multiplies all the lanes of the vector.
     ///

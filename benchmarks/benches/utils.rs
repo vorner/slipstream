@@ -1,7 +1,7 @@
-#[cfg(target_arch = "x86_64")]
-pub use core::arch::x86_64::{self as arch, __m128};
 #[cfg(target_arch = "x86")]
 pub use core::arch::x86::{self as arch, __m128};
+#[cfg(target_arch = "x86_64")]
+pub use core::arch::x86_64::{self as arch, __m128};
 use std::iter;
 
 use once_cell::sync::Lazy;

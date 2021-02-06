@@ -23,10 +23,10 @@ generic-array = "~0.14"
 typenum = "~1"
 
 [dev-dependencies]
+criterion = "~0.3"
 multiversion = "~0.5"
 proptest = "~0.9"
 rand = "~0.7"
-version-sync = "~0.9"
 
 [profile.release]
 debug = 2
@@ -34,3 +34,7 @@ debug = 2
 [profile.test]
 # Some tests are slow to run. Even slower than it takes to compile them properly.
 opt-level = 1
+
+[[bench]]
+name = "track"
+harness = false

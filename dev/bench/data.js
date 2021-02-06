@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1612642755135,
+  "lastUpdate": 1612642858297,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -43,6 +43,50 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 380194,
             "range": "± 26939",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "vorner",
+            "username": "vorner"
+          },
+          "committer": {
+            "name": "vorner",
+            "username": "vorner"
+          },
+          "id": "69db55a92945ebb2adf262691c7b638f75679a51",
+          "message": "Migrate to GH actions",
+          "timestamp": "2021-01-13T21:55:02Z",
+          "url": "https://github.com/vorner/slipstream/pull/6/commits/69db55a92945ebb2adf262691c7b638f75679a51"
+        },
+        "date": 1612642856221,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 68066,
+            "range": "± 3021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 500431,
+            "range": "± 23862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 109730,
+            "range": "± 4308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 499253,
+            "range": "± 17635",
             "unit": "ns/iter"
           }
         ]

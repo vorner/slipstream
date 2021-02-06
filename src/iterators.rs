@@ -534,6 +534,7 @@ macro_rules! vectorizable_tuple {
             type Vectorizer = ($($X::Vectorizer),*);
             type Padding = ($($X::Padding),*);
             #[inline]
+            #[allow(clippy::eq_op)]
             fn create(self, pad: Option<Self::Padding>)
                 -> (Self::Vectorizer, usize, Option<($($XR),*)>)
             {

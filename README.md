@@ -1,6 +1,9 @@
 # Slipstream
 
-[![Travis Build Status](https://api.travis-ci.org/vorner/slipstream.png?branch=master)](https://travis-ci.org/vorner/slipstream)
+[![Actions Status](https://github.com/vorner/slipstream/workflows/test/badge.svg)](https://github.com/vorner/slipstream/actions)
+[![codecov](https://codecov.io/gh/vorner/slipstream/branch/master/graph/badge.svg?token=RG02T39PJZ)](https://codecov.io/gh/vorner/slipstream)
+[![docs](https://docs.rs/slipstream/badge.svg)](https://docs.rs/slipstream)
+
 
 This library helps writing code in a way that incentives the compiler to
 optimize the results better (without really doing anything itself).

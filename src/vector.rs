@@ -293,9 +293,7 @@ macro_rules! vector_impl {
                 let in_bounds = idx
                     .iter()
                     .enumerate()
-                    .all(|(i, &l)| {
-                        !mask[i].bool() || l < output.len()
-                    });
+                    .all(|(i, &l)| !mask[i].bool() || l < output.len());
                 assert!(in_bounds, "Scatter out of bounds");
                 for i in 0..Self::LANES {
                     if mask[i].bool() {

@@ -60,6 +60,7 @@ pub mod align {
     align!(Align16, 16);
     align!(Align32, 32);
     align!(Align64, 64);
+    align!(Align128, 128);
 }
 
 // TODO: Seal?

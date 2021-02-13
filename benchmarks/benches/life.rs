@@ -125,7 +125,7 @@ impl Life {
                     // instructions. So manually expanding the loop.
                     for n in &neighs {
                         // TODO: We want some safe transforms in here.
-                        live_neigh_cnt += unsafe { mem::transmute(*n) };
+                        live_neigh_cnt += unsafe { mem::transmute::<_, Counts>(*n) };
                     }
                     let survive = live_neigh_cnt.eq(twos);
                     *dst = dead.blend(alive, survive) & center;

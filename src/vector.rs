@@ -101,11 +101,37 @@ macro_rules! bin_op_impl {
             }
         }
 
+        impl<A: Align, B: $tr<Output = B> + Repr, const S: usize> $tr<B> for Vector<A, B, S> {
+            type Output = Self;
+            #[inline]
+            fn $meth(self, rhs: B) -> Self {
+                unsafe {
+                    let mut data = MaybeUninit::<Self>::uninit();
+                    for i in 0..S {
+                        ptr::write(
+                            data.as_mut_ptr().cast::<B>().add(i),
+                            $tr::$meth(self.data[i], rhs),
+                        );
+                    }
+                    data.assume_init()
+                }
+            }
+        }
+
         impl<A: Align, B: $tr_assign + Repr, const S: usize> $tr_assign for Vector<A, B, S> {
             #[inline]
             fn $meth_assign(&mut self, rhs: Self) {
                 for i in 0..S {
                     $tr_assign::$meth_assign(&mut self.data[i], rhs.data[i]);
+                }
+            }
+        }
+
+        impl<A: Align, B: $tr_assign + Repr, const S: usize> $tr_assign<B> for Vector<A, B, S> {
+            #[inline]
+            fn $meth_assign(&mut self, rhs: B) {
+                for i in 0..S {
+                    $tr_assign::$meth_assign(&mut self.data[i], rhs);
                 }
             }
         }

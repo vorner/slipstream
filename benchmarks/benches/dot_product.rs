@@ -49,7 +49,7 @@ mv! {
     }
 
     fn packed(l: &[f32], r: &[f32]) -> f32 {
-        type V = packed_simd::f32x16;
+        type V = packed_simd_2::f32x16;
         let l = l.chunks_exact(16);
         let r = r.chunks_exact(16);
         let mut result = V::default();

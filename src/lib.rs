@@ -1,5 +1,5 @@
 #![doc(test(attr(deny(warnings))))]
-#![deny(missing_docs, warnings)]
+#![warn(missing_docs)]
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(test), no_std)]
 
@@ -22,7 +22,9 @@
 //!
 //! Unlike several other SIMD libraries, this one doesn't do any actual explicit SIMD. That results
 //! in relatively simpler interface while still working on stable compiler. It also works in no-std
-//! environment.
+//! environment. However, the optimisations are not guaranteed. In particular, while the crate may
+//! allow for a significant speed-ups, it can *also make your code slower*. When using the crate,
+//! you're strongly advised to benchmark.
 //!
 //! # Anatomy of the crate
 //!
@@ -40,7 +42,7 @@
 //! assert_eq!(a + b, u8x2::new([4, 6]));
 //! ```
 //!
-//! Most of their methods are provided by traits, **especially the [`Vector`] trait**. See the
+//! All these types are backed by the generic [`Vector`] type.  See the
 //! methods there to see how they can be created and how they interact.
 //!
 //! All these can be imported by importing prelude:
@@ -65,21 +67,6 @@
 //!   autovectorize. The widths match the types they work with ‒ comparing two [`u32x2`]s will
 //!   result in [`m32x2`]. The lanes can be converted to/from [`bool`] with methods on the [`Mask`]
 //!   trait, but usually these are just fed back to some other vector operations.
-//!
-//! ## Under the hood
-//!
-//! The above types are only type aliases. Under the hood, these are implemented in generic way by
-//! types like [`Packed4`]. These can be parametrized by a type and a
-//! length. While the crate disallows carrying different base types (for safety reasons; the crate
-//! makes certain assumptions about the base type), different array lengths are possible ‒ though
-//! for the compiler to make any sense of them, likely only power of two lengths make any sense.
-//! The lengths are specified using the type level numbers from the [`typenum`] crate, eg.
-//! [`U4`][typenum::consts::U4].
-//!
-//! The suffix number (4 in [`Packed4`]) means minimal alignment of the whole type, in bytes.
-//! Therefore, while [`u8`] aligns to 1 byte, `[u8; 16]` also aligns to 1 byte, [`u8x16`] aligns to
-//! 16 bytes (because it uses the [`Packed16`] type). This allows the compiler to use 128bit vector
-//! instructions (SSE) as these expect such alignment.
 //!
 //! ## Vectorization of slices
 //!
@@ -177,6 +164,18 @@
 //! Therefore, to compute a sum of bunch of numbers, split the input into vectors, sum these up and
 //! do single `horizontal_sum` at the very end.
 //!
+//! ```rust
+//! # use slipstream::prelude::*;
+//! fn sum(data: &[f32x8]) -> f32 {
+//!     data
+//!         .iter()
+//!         .copied()
+//!         .sum::<f32x8>() // Summing up whole f32x8 vectors, result is also f32x8
+//!         .horizontal_sum() // Summing individual lanes of that vector
+//! }
+//! # assert_eq!(0.0, sum(&[]));
+//! ```
+//!
 //! Also keep in mind that there's usually some „warm up“ for vectorized part of code. This partly
 //! comes from the need to somehow deal with uneven ends (if the input is not divisible by the
 //! vector size). Also, some instructions require the CPU to switch state, possibly lower frequency
@@ -247,19 +246,12 @@
 //!   instruction sets explicitly. It supports explicit vectorization (doesn't rely on
 //!   autovectorizer). It is not yet released.
 //!
-//! [`Packed4`]: crate::vector::Packed4
-//! [`Packed16`]: crate::vector::Packed16
 //! [`multiversion`]: https://crates.io/crates/multiversion
 //! [`rayon`]: https://crates.io/crates/rayon
 //! [`packed_simd`]: https://crates.io/crates/packed_simd
 //! [`faster`]: https://crates.io/crates/faster
 //! [`simdeez`]: https://crates.io/crates/simdeez
 //! [`safe_simd`]: https://github.com/calebzulawski/safe_simd/
-
-use core::ops::*;
-
-use generic_array::ArrayLength;
-use typenum::marker_traits::Unsigned;
 
 pub mod iterators;
 pub mod mask;
@@ -269,6 +261,7 @@ pub mod vector;
 pub use iterators::Vectorizable;
 pub use mask::Mask;
 pub use types::*;
+pub use vector::Vector;
 
 /// Commonly used imports
 ///
@@ -276,8 +269,8 @@ pub use types::*;
 /// crate.
 pub mod prelude {
     pub use crate::types::*;
+    pub use crate::vector::Masked as _;
     pub use crate::Mask as _;
-    pub use crate::Vector as _;
     pub use crate::Vectorizable as _;
 }
 
@@ -409,358 +402,6 @@ mod inner {
     }
 }
 
-/// A trait with common methods of the vector types.
-///
-/// The vector types (like [`u32x4`]) don't have inherent methods on themselves. They implement
-/// several traits (mostly arithmetics, bit operations, dereferencing to slices and indexing).
-/// Further methods of all the vector types are on this trait.
-///
-/// It can also be used to describe multiple vector types at once ‒ for example `Vector<Base =
-/// u32>` describes all the vectors that have `u32` as their base type, be it [`u32x4`] or
-/// [`u32x16`].
-///
-/// # Examples
-///
-/// ```rust
-/// # use slipstream::prelude::*;
-/// let a = i32x4::new([1, -2, 3, -4]);
-/// let b = -a;                           // [-1, 2, -3, 4]
-/// let positive = a.ge(i32x4::splat(1)); // Lane-wise a >= 1
-/// // Will take from b where positive is true, from a otherwise
-/// let abs = b.blend(a, positive);
-/// assert_eq!(abs, i32x4::new([1, 2, 3, 4]));
-/// ```
-pub trait Vector: Copy + Send + Sync + Sized + 'static {
-    /// Type of one lane of the vector.
-    ///
-    /// It's the `u32` for [`u32x4`].
-    type Base: inner::Repr;
-
-    /// A type-level integer specifying the length of the vector.
-    ///
-    /// This is the [`U4`][typenum::consts::U4] for [`u32x4`].
-    type Lanes: ArrayLength<Self::Base>;
-
-    /// The mask type for this vector.
-    ///
-    /// Masks are vector types of boolean-like base types. They are used as results of lane-wise
-    /// comparisons like [`eq`][Vector::eq] and for enabling subsets of lanes for certain
-    /// operations, like [`blend`][Vector::blend] and
-    /// [`gather_load_masked`][Vector::gather_load_masked].
-    ///
-    /// This associated types describes the native mask for the given vector. For example for
-    /// [`u32x4`] it would be [`m32x4`]. This is the type that the comparisons produce. While the
-    /// selection methods accept any mask type of the right number of lanes, using this type on
-    /// their input is expected to yield the best performance.
-    type Mask: AsRef<[<Self::Base as inner::Repr>::Mask]>;
-
-    /// Number of lanes of the vector.
-    ///
-    /// This is similar to [`Lanes`][Vector::Lanes], but as a constant instead of type.
-    const LANES: usize = Self::Lanes::USIZE;
-
-    /// Load the vector without doing bounds checks.
-    ///
-    /// # Safety
-    ///
-    /// The pointed to memory must be valid in `Self::LANES` consecutive cells ‒ eg. it must
-    /// contain a full array of the base types.
-    unsafe fn new_unchecked(input: *const Self::Base) -> Self;
-
-    /// Loads the vector from correctly sized slice.
-    ///
-    /// This loads the vector from correctly sized slice or anything that can be converted to it ‒
-    /// specifically, fixed sized arrays and other vectors work.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let vec = (0..10).collect::<Vec<_>>();
-    /// let v1 = u32x4::new(&vec[0..4]);
-    /// let v2 = u32x4::new(v1);
-    /// let v3 = u32x4::new([2, 3, 4, 5]);
-    /// assert_eq!(v1 + v2 + v3, u32x4::new([2, 5, 8, 11]));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// If the provided slice is of incompatible size.
-    #[inline]
-    fn new<I>(input: I) -> Self
-    where
-        I: AsRef<[Self::Base]>,
-    {
-        let input = input.as_ref();
-        assert_eq!(
-            input.len(),
-            Self::LANES,
-            "Creating vector from the wrong sized slice (expected {}, got {})",
-            Self::LANES,
-            input.len(),
-        );
-        unsafe { Self::new_unchecked(input.as_ptr()) }
-    }
-
-    /// Produces a vector of all lanes set to the same value.
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let v = f32x4::splat(1.2);
-    /// assert_eq!(v, f32x4::new([1.2, 1.2, 1.2, 1.2]));
-    /// ```
-    fn splat(value: Self::Base) -> Self;
-
-    /// Loads the vector from a slice by indexing it.
-    ///
-    /// Unlike the [`new`], this can load the vector from discontinuous parts of the slice, out of
-    /// order or multiple lanes from the same location. This flexibility comes at the cost of lower
-    /// performance (in particular, I've never seen this to get auto-vectorized even though a
-    /// gather instruction exists), therefore prefer [`new`] where possible.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let input = (2..100).collect::<Vec<_>>();
-    /// let vec = u32x4::gather_load(&input, [3, 3, 1, 32]);
-    /// assert_eq!(vec, u32x4::new([5, 5, 3, 34]));
-    /// ```
-    ///
-    /// It is possible to use another vector as the indices:
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let indices = usizex4::new([1, 2, 3, 4]) * usizex4::splat(2);
-    /// let input = (0..10).collect::<Vec<_>>();
-    /// let vec = u32x4::gather_load(&input, indices);
-    /// assert_eq!(vec, u32x4::new([2, 4, 6, 8]));
-    /// ```
-    ///
-    /// It is possible to use another vector as an input, allowing to narrow it down or shuffle.
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let a = u32x4::new([1, 2, 3, 4]);
-    /// let b = u32x4::gather_load(a, [2, 0, 1, 3]);
-    /// assert_eq!(b, u32x4::new([3, 1, 2, 4]));
-    /// let c = u32x2::gather_load(a, [2, 2]);
-    /// assert_eq!(c, u32x2::new([3, 3]));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// * If the `idx` slice doesn't have the same length as the vector.
-    /// * If any of the indices is out of bounds of the `input`.
-    ///
-    /// [`new`]: Vector::new
-    fn gather_load<I, Idx>(input: I, idx: Idx) -> Self
-    where
-        I: AsRef<[Self::Base]>,
-        Idx: AsRef<[usize]>;
-
-    /// Loads enabled lanes from a slice by indexing it.
-    ///
-    /// This is similar to [`gather_load`]. However, the loading of lanes is
-    /// enabled by a mask. If the corresponding lane mask is not set, the value is taken from
-    /// `self`. In other words, if the mask is all-true, it is semantically equivalent to
-    /// [`gather_load`], expect with possible worse performance.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let input = (0..100).collect::<Vec<_>>();
-    /// let v = u32x4::default().gather_load_masked(
-    ///     &input,
-    ///     [1, 4, 2, 2],
-    ///     [m32::TRUE, m32::FALSE, m32::FALSE, m32::TRUE]
-    /// );
-    /// assert_eq!(v, u32x4::new([1, 0, 0, 2]));
-    /// ```
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let left = u32x2::new([1, 2]);
-    /// let right = u32x2::new([3, 4]);
-    /// let idx = usizex4::new([0, 1, 0, 1]);
-    /// let mask = m32x4::new([m32::TRUE, m32::TRUE, m32::FALSE, m32::FALSE]);
-    /// let v = u32x4::default()
-    ///     .gather_load_masked(left, idx, mask)
-    ///     .gather_load_masked(right, idx, !mask);
-    /// assert_eq!(v, u32x4::new([1, 2, 3, 4]));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// * If the `mask` or the `idx` parameter is of different length than the vector.
-    /// * If any of the active indices are out of bounds of `input`.
-    ///
-    /// [`gather_load`]: Vector::gather_load
-    fn gather_load_masked<I, Idx, M, MB>(self, input: I, idx: Idx, mask: M) -> Self
-    where
-        I: AsRef<[Self::Base]>,
-        Idx: AsRef<[usize]>,
-        M: AsRef<[MB]>,
-        MB: Mask;
-
-    /// Store the vector into a slice by indexing it.
-    ///
-    /// This is the inverse of [`gather_load`][Vector::gather_load]. It takes the lanes of the
-    /// vector and stores them into the slice into given indices.
-    ///
-    /// If you want to store it into a continuous slice, it is potentially faster to do it using
-    /// the `copy_from_slice` method:
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let mut data = vec![0; 6];
-    /// let v = u32x4::new([1, 2, 3, 4]);
-    /// data[0..4].copy_from_slice(&v);
-    /// assert_eq!(&data[..], &[1, 2, 3, 4, 0, 0]);
-    /// ```
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let mut data = vec![0; 6];
-    /// let v = u32x4::new([1, 2, 3, 4]);
-    /// v.scatter_store(&mut data, [2, 5, 0, 1]);
-    /// assert_eq!(&data[..], &[3, 4, 1, 0, 0, 2]);
-    /// ```
-    ///
-    /// # Warning
-    ///
-    /// If multiple lanes are to be stored into the same slice element, it is not specified which
-    /// of them will end up being stored. It is not UB to do so and it'll always be one of them,
-    /// however it may change between versions or even between compilation targets which.
-    ///
-    /// This is to allow for potential different behaviour of different platforms.
-    ///
-    /// # Panics
-    ///
-    /// * If the `idx` has a different length than the vector.
-    /// * If any of the indices are out of bounds of `output`.
-    fn scatter_store<O, Idx>(self, output: O, idx: Idx)
-    where
-        O: AsMut<[Self::Base]>,
-        Idx: AsRef<[usize]>;
-
-    /// A masked version of [`scatter_store`].
-    ///
-    /// This acts in the same way as [`scatter_store`], except lanes disabled by the `mask` are not
-    /// stored anywhere.
-    ///
-    /// # Panics
-    ///
-    /// * If the `idx` or `mask` has a different length than the vector.
-    /// * If any of the active indices are out of bounds of `output`.
-    ///
-    /// [`scatter_store`]: Vector::scatter_store
-    fn scatter_store_masked<O, Idx, M, MB>(self, output: O, idx: Idx, mask: M)
-    where
-        O: AsMut<[Self::Base]>,
-        Idx: AsRef<[usize]>,
-        M: AsRef<[MB]>,
-        MB: Mask;
-
-    /// Lane-wise `<`.
-    fn lt(self, other: Self) -> Self::Mask
-    where
-        Self::Base: PartialOrd;
-
-    /// Lane-wise `>`.
-    fn gt(self, other: Self) -> Self::Mask
-    where
-        Self::Base: PartialOrd;
-
-    /// Lane-wise `<=`.
-    fn le(self, other: Self) -> Self::Mask
-    where
-        Self::Base: PartialOrd;
-
-    /// Lane-wise `>=`.
-    fn ge(self, other: Self) -> Self::Mask
-    where
-        Self::Base: PartialOrd;
-
-    /// Lane-wise `==`.
-    fn eq(self, other: Self) -> Self::Mask
-    where
-        Self::Base: PartialEq;
-
-    /// Blend self and other using mask.
-    ///
-    /// Imports enabled lanes from `other`, keeps disabled lanes from `self`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let odd = u32x4::new([1, 3, 5, 7]);
-    /// let even = u32x4::new([2, 4, 6, 8]);
-    /// let mask = m32x4::new([m32::TRUE, m32::FALSE, m32::TRUE, m32::FALSE]);
-    /// assert_eq!(odd.blend(even, mask), u32x4::new([2, 3, 6, 7]));
-    /// ```
-    fn blend<M, MB>(self, other: Self, mask: M) -> Self
-    where
-        M: AsRef<[MB]>,
-        MB: Mask;
-
-    /// A lane-wise maximum.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let a = u32x4::new([1, 4, 2, 5]);
-    /// let b = u32x4::new([2, 3, 2, 6]);
-    /// assert_eq!(a.maximum(b), u32x4::new([2, 4, 2, 6]));
-    /// ```
-    #[inline]
-    fn maximum(self, other: Self) -> Self
-    where
-        Self::Base: PartialOrd,
-    {
-        let m = self.lt(other);
-        self.blend(other, m)
-    }
-
-    /// A lane-wise maximum.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use slipstream::prelude::*;
-    /// let a = u32x4::new([1, 4, 2, 5]);
-    /// let b = u32x4::new([2, 3, 2, 6]);
-    /// assert_eq!(a.minimum(b), u32x4::new([1, 3, 2, 5]));
-    /// ```
-    #[inline]
-    fn minimum(self, other: Self) -> Self
-    where
-        Self::Base: PartialOrd,
-    {
-        let m = self.gt(other);
-        self.blend(other, m)
-    }
-
-    /// Sums the lanes together.
-    ///
-    /// The additions are done in a tree manner: `(a[0] + a[1]) + (a[2] + a[3])`.
-    fn horizontal_sum(self) -> Self::Base
-    where
-        Self::Base: Add<Output = Self::Base>;
-
-    /// Multiplies all the lanes of the vector.
-    ///
-    /// The multiplications are done in a tree manner: `(a[0] * a[1]) * (a[2] * a[3])`.
-    fn horizontal_product(self) -> Self::Base
-    where
-        Self::Base: Mul<Output = Self::Base>;
-}
-
 /// Free-standing version of [`Vectorizable::vectorize`].
 ///
 /// This is the same as `a.vectorize()`. Nevertheless, this version might be more convenient as it
@@ -773,7 +414,7 @@ pub trait Vector: Copy + Send + Sync + Sized + 'static {
 ///     println!("{:?}", v);
 /// }
 /// ```
-#[inline]
+#[inline(always)]
 pub fn vectorize<V, A>(a: A) -> impl Iterator<Item = V>
 where
     A: Vectorizable<V>,
@@ -791,7 +432,7 @@ where
 /// let v = slipstream::vectorize_pad(&data[..], i32x4::splat(-1)).collect::<Vec<_>>();
 /// assert_eq!(v, vec![i32x4::new([1, 2, 3, 4]), i32x4::new([5, 6, -1, -1])]);
 /// ```
-#[inline]
+#[inline(always)]
 pub fn vectorize_pad<V, A>(a: A, pad: A::Padding) -> impl Iterator<Item = V>
 where
     A: Vectorizable<V>,

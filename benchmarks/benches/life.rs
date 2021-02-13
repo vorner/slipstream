@@ -29,7 +29,7 @@ const NEIGHS: [(isize, isize); 8] = [
     (0, -1),
 ];
 
-const SIZE: usize = 1024;
+const SIZE: usize = 1026;
 
 impl Life {
     fn at(&self, x: usize, y: usize) -> usize {
@@ -97,16 +97,16 @@ impl Life {
 
     mv! {
         fn step_vectorized(&mut self) {
-            let zeroes = Counts::default();
-            let ones = Counts::splat(1);
+            assert_eq!(mem::align_of::<Counts>(), mem::align_of::<Bools>());
+            assert_eq!(mem::size_of::<Counts>(), mem::size_of::<Bools>());
             let twos = Counts::splat(2);
             let threes = Counts::splat(3);
             let dead = Bools::default();
             let alive = Bools::splat(true);
 
+            let mut neighs: [_; 8] = Default::default();
             for y in 1..self.edge - 1 {
                 let cells = &self.cells;
-                let mut neighs: [_; 8] = Default::default();
                 for (ndest, &(xd, yd)) in neighs.iter_mut().zip(&NEIGHS) {
                     let idx = self.at((1 + xd) as usize, ((y as isize) + yd) as usize);
                     *ndest = &cells[idx..idx + self.edge - 2];
@@ -115,19 +115,22 @@ impl Life {
                 let center_idx = self.at(1, y);
                 let center = &cells[center_idx..center_idx + self.edge - 2];
                 let dst = &mut self.next[center_idx..center_idx + self.edge - 2];
-                let pad: ([Bools; 8], Bools, Bools) = Default::default();
 
-                for (neighs, center, mut dst) in (neighs, center, dst).vectorize_pad(pad) {
+                let iter = slipstream::vectorize::<([Bools; 8], Bools, _), _>((neighs, center, dst));
+
+                for (neighs, center, mut dst) in iter {
                     let mut live_neigh_cnt = Counts::default();
                     // FIXME: Using sum here unfortunately prevents inlining, which leads to
                     // performance drop *and* barrier across which we don't get the AVX
                     // instructions. So manually expanding the loop.
                     for n in &neighs {
-                        live_neigh_cnt += zeroes.blend(ones, *n);
+                        // TODO: We want some safe transforms in here.
+                        live_neigh_cnt += unsafe { mem::transmute(*n) };
                     }
-                    let born = live_neigh_cnt.eq(threes);
                     let survive = live_neigh_cnt.eq(twos);
-                    *dst = dead.blend(alive, born) | (dead.blend(alive, survive) & center);
+                    *dst = dead.blend(alive, survive) & center;
+                    let born = live_neigh_cnt.eq(threes);
+                    *dst |= dead.blend(alive, born);
                 }
             }
             mem::swap(&mut self.cells, &mut self.next);

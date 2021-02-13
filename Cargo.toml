@@ -19,8 +19,6 @@ maintenance = { status = "actively-developed" }
 members = ["benchmarks"]
 
 [dependencies]
-generic-array = "~0.14"
-typenum = "~1"
 
 [dev-dependencies]
 criterion = "~0.3"

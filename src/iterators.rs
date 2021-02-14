@@ -470,6 +470,7 @@ impl<'a, A: Align, B: Repr, const S: usize> Vectorizable<MutProxy<'a, B, Vector<
     type Vectorizer = WriteVectorizer<'a, A, B, S>;
     type Padding = Vector<A, B, S>;
     #[inline]
+    #[allow(clippy::type_complexity)]
     fn create(
         self,
         pad: Option<Vector<A, B, S>>,
@@ -601,8 +602,8 @@ where
     #[inline(always)]
     unsafe fn get(&mut self, idx: usize) -> [TR; S] {
         let mut res = MaybeUninit::<[TR; S]>::uninit();
-        for i in 0..S {
-            ptr::write(res.as_mut_ptr().cast::<TR>().add(i), self[i].get(idx));
+        for (i, v) in self.iter_mut().enumerate() {
+            ptr::write(res.as_mut_ptr().cast::<TR>().add(i), v.get(idx));
         }
         res.assume_init()
     }

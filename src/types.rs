@@ -1,9 +1,9 @@
 #![allow(missing_docs)]
 //! Type aliases of the commonly used vector types.
 //!
-//! While the vector types are created from the [`Packed?`][Packed2] by setting the base type and
-//! length, this is seldom done in downstream code. Instead, this module provides the commonly used
-//! types as aliases, like [u16x8]. See the [crate introduction](crate) for further details about the
+//! While the vector types are created from the [`Vector`] by setting the base type and length,
+//! this is seldom done in downstream code. Instead, this module provides the commonly used types
+//! as aliases, like [u16x8]. See the [crate introduction](crate) for further details about the
 //! naming convention.
 //!
 //! All these types are also exported as part of the [`prelude`][crate::prelude].

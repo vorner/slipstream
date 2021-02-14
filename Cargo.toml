@@ -22,9 +22,9 @@ members = ["benchmarks"]
 
 [dev-dependencies]
 criterion = "~0.3"
-multiversion = "~0.5"
-proptest = "~0.9"
-rand = "~0.7"
+multiversion = "~0.6"
+proptest = "~0.10"
+rand = "~0.8"
 
 [profile.release]
 debug = 2

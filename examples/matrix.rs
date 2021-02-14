@@ -35,7 +35,6 @@ impl Matrix {
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-    #[static_dispatch(fn = "dot_prod")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
         let mut output = vec![Wrapping(0); SIZE * SIZE];
 
@@ -59,7 +58,8 @@ impl Matrix {
             // Across rows
             for y in 0..SIZE {
                 let row_start = at(0, y);
-                output[at(x, y)] = dot_prod(&self.0[row_start..row_start + SIZE], &column);
+                output[at(x, y)] =
+                    dispatch!(dot_prod(&self.0[row_start..row_start + SIZE], &column));
             }
         }
         Matrix(output)

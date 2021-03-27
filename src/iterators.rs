@@ -153,10 +153,8 @@ where
             let idx = self.left;
             self.left += 1;
             Some(unsafe { self.vectorizer.get(idx) })
-        } else if let Some(partial) = self.partial.take_partial() {
-            Some(partial)
         } else {
-            None
+            self.partial.take_partial()
         }
     }
 

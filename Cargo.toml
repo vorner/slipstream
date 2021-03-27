@@ -1,6 +1,6 @@
 [package]
 name = "slipstream"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Michal 'vorner' Vaner <vorner@vorner.cz>"]
 edition = "2018"
 description = "SIMD library usable by the masses"
@@ -19,14 +19,12 @@ maintenance = { status = "actively-developed" }
 members = ["benchmarks"]
 
 [dependencies]
-generic-array = "~0.14"
-typenum = "~1"
 
 [dev-dependencies]
 criterion = "~0.3"
-multiversion = "~0.5"
-proptest = "~0.9"
-rand = "~0.7"
+multiversion = "~0.6"
+proptest = "~0.10"
+rand = "~0.8"
 
 [profile.release]
 debug = 2

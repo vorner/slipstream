@@ -35,32 +35,31 @@ impl Matrix {
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
     #[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-    #[static_dispatch(fn = "dot_prod")]
     fn mult_simd(&self, rhs: &Matrix) -> Matrix {
         let mut output = vec![Wrapping(0); SIZE * SIZE];
 
         // Pre-compute offsets when gathering the column
         let mut column: [V; SIZE / L] = [Default::default(); SIZE / L];
         let offsets = (0..L).collect::<Vec<_>>();
-        let base_offsets = O::new(offsets) * O::splat(SIZE);
+        let base_offsets = O::new(offsets) * SIZE;
         let mut offsets: [O; SIZE / L] = [Default::default(); SIZE / L];
         for i in 0..SIZE / L {
-            offsets[i] = base_offsets + O::splat(i * L * SIZE);
+            offsets[i] = base_offsets + i * L * SIZE;
         }
 
         // Across columns
         for x in 0..SIZE {
             // The gather_load is likely slower than just vectorizing the row, so we do this less
             // often and just once for each column instead of each time.
-            let local_offsets = O::splat(x);
             for (col, off) in (&mut column[..], &offsets[..]).vectorize() {
-                *col = V::gather_load(&rhs.0, off + local_offsets);
+                *col = V::gather_load(&rhs.0, off + x);
             }
 
             // Across rows
             for y in 0..SIZE {
                 let row_start = at(0, y);
-                output[at(x, y)] = dot_prod(&self.0[row_start..row_start + SIZE], &column);
+                output[at(x, y)] =
+                    dispatch!(dot_prod(&self.0[row_start..row_start + SIZE], &column));
             }
         }
         Matrix(output)

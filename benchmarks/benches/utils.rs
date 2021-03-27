@@ -6,8 +6,6 @@ use std::iter;
 
 use once_cell::sync::Lazy;
 
-use slipstream::prelude::*;
-
 #[macro_export]
 macro_rules! mv {
     ($(fn $name: ident($($params: tt)*) $(-> $res: ty)? $body: block)*) => {

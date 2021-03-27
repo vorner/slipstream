@@ -64,7 +64,7 @@ mv! {
             }
         }
 
-        sum_up(&result)
+        sum_up(&result[..])
     }
 
     fn vectorize(data: &[f32]) -> f32 {

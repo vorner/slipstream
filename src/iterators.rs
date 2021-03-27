@@ -27,9 +27,11 @@ use core::ops::*;
 use core::ptr;
 use core::slice;
 
-use crate::{inner, Vector};
-use generic_array::ArrayLength;
+use crate::inner::Repr;
+use crate::vector::align::Align;
+use crate::Vector;
 
+// TODO: Deref to arrays, not slices
 /// A proxy object for iterating over mutable slices.
 ///
 /// For technical reasons (mostly alignment and padding), it's not possible to return a simple
@@ -42,7 +44,7 @@ use generic_array::ArrayLength;
 #[derive(Debug)]
 pub struct MutProxy<'a, B, V>
 where
-    V: Deref<Target = [B]>,
+    V: AsRef<[B]>,
     B: Copy,
 {
     data: V,
@@ -51,7 +53,7 @@ where
 
 impl<B, V> Deref for MutProxy<'_, B, V>
 where
-    V: Deref<Target = [B]>,
+    V: AsRef<[B]>,
     B: Copy,
 {
     type Target = V;
@@ -63,7 +65,7 @@ where
 
 impl<B, V> DerefMut for MutProxy<'_, B, V>
 where
-    V: Deref<Target = [B]>,
+    V: AsRef<[B]>,
     B: Copy,
 {
     #[inline]
@@ -74,13 +76,13 @@ where
 
 impl<B, V> Drop for MutProxy<'_, B, V>
 where
-    V: Deref<Target = [B]>,
+    V: AsRef<[B]>,
     B: Copy,
 {
     #[inline]
     fn drop(&mut self) {
         self.restore
-            .copy_from_slice(&self.data.deref()[..self.restore.len()]);
+            .copy_from_slice(&self.data.as_ref()[..self.restore.len()]);
     }
 }
 
@@ -325,7 +327,7 @@ pub trait Vectorizable<V>: Sized {
     ///     println!("s: {:?}, l: {:?})", s, l);
     /// }
     /// ```
-    #[inline]
+    #[inline(always)]
     fn vectorize(self) -> VectorizedIter<Self::Vectorizer, (), V> {
         let (vectorizer, len, partial) = self.create(None);
         assert!(partial.is_none());
@@ -362,7 +364,7 @@ pub trait Vectorizable<V>: Sized {
     /// let v = data.vectorize_pad(i32x4::splat(-1)).collect::<Vec<_>>();
     /// assert_eq!(v, vec![i32x4::new([1, 2, 3, 4]), i32x4::new([5, 6, -1, -1])]);
     /// ```
-    #[inline]
+    #[inline(always)]
     fn vectorize_pad(self, pad: Self::Padding) -> VectorizedIter<Self::Vectorizer, Option<V>, V> {
         let (vectorizer, len, partial) = self.create(Some(pad));
         VectorizedIter {
@@ -377,47 +379,40 @@ pub trait Vectorizable<V>: Sized {
 
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
-pub struct ReadVectorizer<'a, B, V> {
+pub struct ReadVectorizer<'a, A: Align, B: Repr, const S: usize> {
     start: *const B,
-    _vector: PhantomData<V>,
+    _vector: PhantomData<Vector<A, B, S>>,
     _slice: PhantomData<&'a [B]>, // To hold the lifetime
 }
 
 // Note: The impls here assume V, B, P are Sync and Send, which they are. Nobody is able to create
 // this directly and we do have the limits on Vector, the allowed implementations, etc.
-unsafe impl<B, V> Send for ReadVectorizer<'_, B, V> {}
-unsafe impl<B, V> Sync for ReadVectorizer<'_, B, V> {}
+unsafe impl<A: Align, B: Repr, const S: usize> Send for ReadVectorizer<'_, A, B, S> {}
+unsafe impl<A: Align, B: Repr, const S: usize> Sync for ReadVectorizer<'_, A, B, S> {}
 
-impl<'a, B, V> Vectorizer<V> for ReadVectorizer<'_, B, V>
-where
-    B: inner::Repr,
-    V: Vector<Base = B>,
-    V::Lanes: ArrayLength<B>,
-    V::Mask: AsRef<[B::Mask]>,
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizer<Vector<A, B, S>>
+    for ReadVectorizer<'_, A, B, S>
 {
-    #[inline]
-    unsafe fn get(&mut self, idx: usize) -> V {
-        V::new_unchecked(self.start.add(V::LANES * idx))
+    #[inline(always)]
+    unsafe fn get(&mut self, idx: usize) -> Vector<A, B, S> {
+        Vector::new_unchecked(self.start.add(S * idx))
     }
 }
 
-impl<'a, B, V> Vectorizable<V> for &'a [B]
-where
-    B: inner::Repr,
-    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
-    V::Lanes: ArrayLength<B>,
-    V::Mask: AsRef<[B::Mask]>,
-{
-    type Vectorizer = ReadVectorizer<'a, B, V>;
-    type Padding = V;
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizable<Vector<A, B, S>> for &'a [B] {
+    type Vectorizer = ReadVectorizer<'a, A, B, S>;
+    type Padding = Vector<A, B, S>;
     #[inline]
-    fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<V>) {
+    fn create(
+        self,
+        pad: Option<Vector<A, B, S>>,
+    ) -> (Self::Vectorizer, usize, Option<Vector<A, B, S>>) {
         let len = self.len();
         assert!(
             len * mem::size_of::<B>() <= isize::MAX as usize,
             "Slice too huge"
         );
-        let rest = len % V::LANES;
+        let rest = len % S;
         let main = len - rest;
         let start = self.as_ptr();
         let partial = match (rest, pad) {
@@ -428,8 +423,7 @@ where
             }
             _ => panic!(
                 "Data to vectorize not divisible by lanes ({} vs {})",
-                V::LANES,
-                len,
+                S, len,
             ),
         };
         let me = ReadVectorizer {
@@ -437,60 +431,60 @@ where
             _vector: PhantomData,
             _slice: PhantomData,
         };
-        (me, main / V::LANES, partial)
+        (me, main / S, partial)
     }
 }
 
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug)]
-pub struct WriteVectorizer<'a, B, V> {
+pub struct WriteVectorizer<'a, A: Align, B: Repr, const S: usize> {
     start: *mut B,
-    _vector: PhantomData<V>,
+    _vector: PhantomData<Vector<A, B, S>>,
     _slice: PhantomData<&'a mut [B]>, // To hold the lifetime
 }
 
 // Note: The impls here assume V, B, P are Sync and Send, which they are. Nobody is able to create
 // this directly and we do have the limits on Vector, the allowed implementations, etc.
-unsafe impl<B, V> Send for WriteVectorizer<'_, B, V> {}
-unsafe impl<B, V> Sync for WriteVectorizer<'_, B, V> {}
+unsafe impl<A: Align, B: Repr, const S: usize> Send for WriteVectorizer<'_, A, B, S> {}
+unsafe impl<A: Align, B: Repr, const S: usize> Sync for WriteVectorizer<'_, A, B, S> {}
 
-impl<'a, B, V> Vectorizer<MutProxy<'a, B, V>> for WriteVectorizer<'a, B, V>
-where
-    B: inner::Repr,
-    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
-    V::Lanes: ArrayLength<B>,
-    V::Mask: AsRef<[B::Mask]>,
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizer<MutProxy<'a, B, Vector<A, B, S>>>
+    for WriteVectorizer<'a, A, B, S>
 {
-    #[inline]
-    unsafe fn get(&mut self, idx: usize) -> MutProxy<'a, B, V> {
+    #[inline(always)]
+    unsafe fn get(&mut self, idx: usize) -> MutProxy<'a, B, Vector<A, B, S>> {
         // FIXME: Technically, we extend the lifetime in the from_raw_parts_mut beyond what rust
         // would allow us to normally do. But is this OK? As we are guaranteed never to give any
         // chunk twice, this should act similar to IterMut from slice or similar.
-        let ptr = self.start.add(V::LANES * idx);
+        let ptr = self.start.add(S * idx);
         MutProxy {
-            data: V::new_unchecked(ptr),
-            restore: slice::from_raw_parts_mut(ptr, V::LANES),
+            data: Vector::new_unchecked(ptr),
+            restore: slice::from_raw_parts_mut(ptr, S),
         }
     }
 }
 
-impl<'a, B, V> Vectorizable<MutProxy<'a, B, V>> for &'a mut [B]
-where
-    B: inner::Repr,
-    V: Vector<Base = B> + Deref<Target = [B]> + DerefMut,
-    V::Lanes: ArrayLength<B>,
-    V::Mask: AsRef<[B::Mask]>,
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizable<MutProxy<'a, B, Vector<A, B, S>>>
+    for &'a mut [B]
 {
-    type Vectorizer = WriteVectorizer<'a, B, V>;
-    type Padding = V;
+    type Vectorizer = WriteVectorizer<'a, A, B, S>;
+    type Padding = Vector<A, B, S>;
     #[inline]
-    fn create(self, pad: Option<V>) -> (Self::Vectorizer, usize, Option<MutProxy<'a, B, V>>) {
+    #[allow(clippy::type_complexity)]
+    fn create(
+        self,
+        pad: Option<Vector<A, B, S>>,
+    ) -> (
+        Self::Vectorizer,
+        usize,
+        Option<MutProxy<'a, B, Vector<A, B, S>>>,
+    ) {
         let len = self.len();
         assert!(
             len * mem::size_of::<B>() <= isize::MAX as usize,
             "Slice too huge"
         );
-        let rest = len % V::LANES;
+        let rest = len % S;
         let main = len - rest;
         let start = self.as_mut_ptr();
         let partial = match (rest, pad) {
@@ -502,8 +496,7 @@ where
             }
             _ => panic!(
                 "Data to vectorize not divisible by lanes ({} vs {})",
-                V::LANES,
-                len,
+                S, len,
             ),
         };
         let me = WriteVectorizer {
@@ -511,7 +504,7 @@ where
             _vector: PhantomData,
             _slice: PhantomData,
         };
-        (me, main / V::LANES, partial)
+        (me, main / S, partial)
     }
 }
 
@@ -521,7 +514,7 @@ macro_rules! vectorizable_tuple {
         where
             $($X: Vectorizer<$XR>,)*
         {
-            #[inline]
+            #[inline(always)]
             unsafe fn get(&mut self, idx: usize) -> ($($XR),*) {
                 ($(self.$X0.get(idx)),*)
             }
@@ -602,90 +595,64 @@ vectorizable_tuple!(
     (H, HR, 7)
 );
 
-macro_rules! vectorizable_arr {
-    ($s: expr) => {
-        impl<T, TR> Vectorizer<[TR; $s]> for [T; $s]
-        where
-            T: Vectorizer<TR>,
-        {
-            #[inline]
-            unsafe fn get(&mut self, idx: usize) -> [TR; $s] {
-                let mut res = MaybeUninit::<[TR; $s]>::uninit();
-                for i in 0..$s {
-                    ptr::write(res.as_mut_ptr().cast::<TR>().add(i), self[i].get(idx));
-                }
-                res.assume_init()
-            }
+impl<T, TR, const S: usize> Vectorizer<[TR; S]> for [T; S]
+where
+    T: Vectorizer<TR>,
+{
+    #[inline(always)]
+    unsafe fn get(&mut self, idx: usize) -> [TR; S] {
+        let mut res = MaybeUninit::<[TR; S]>::uninit();
+        for (i, v) in self.iter_mut().enumerate() {
+            ptr::write(res.as_mut_ptr().cast::<TR>().add(i), v.get(idx));
         }
-
-        impl<T, TR> Vectorizable<[TR; $s]> for [T; $s]
-        where
-            T: Vectorizable<TR> + Copy,
-            T::Padding: Copy,
-        {
-            type Vectorizer = [T::Vectorizer; $s];
-            type Padding = [T::Padding; $s];
-            #[inline]
-            fn create(self, pad: Option<Self::Padding>)
-                -> (Self::Vectorizer, usize, Option<[TR; $s]>)
-            {
-                let mut vectorizer = MaybeUninit::<Self::Vectorizer>::uninit();
-                let mut size = 0;
-                let mut padding = MaybeUninit::<[TR; $s]>::uninit();
-                let mut seen_some_pad = false;
-                let mut seen_none_pad = false;
-                unsafe {
-                    for i in 0..$s {
-                        let (v, s, p) = self[i].create(pad.map(|p| p[i]));
-                        ptr::write(vectorizer.as_mut_ptr().cast::<T::Vectorizer>().add(i), v);
-                        if i == 0 {
-                            size = s;
-                        } else {
-                            assert_eq!(
-                                size, s,
-                                "Vectorized lengths inconsistent across the array",
-                            );
-                        }
-                        match p {
-                            Some(p) => {
-                                seen_some_pad = true;
-                                ptr::write(padding.as_mut_ptr().cast::<TR>().add(i), p);
-                            },
-                            None => seen_none_pad = true,
-                        }
-                    }
-                    assert!(
-                        !seen_some_pad || !seen_none_pad,
-                        "Paddings inconsistent across the array",
-                    );
-                    let padding = if seen_some_pad {
-                        Some(padding.assume_init())
-                    } else {
-                        None
-                    };
-                    (vectorizer.assume_init(), size, padding)
-                }
-            }
-        }
+        res.assume_init()
     }
 }
 
-vectorizable_arr!(1);
-vectorizable_arr!(2);
-vectorizable_arr!(3);
-vectorizable_arr!(4);
-vectorizable_arr!(5);
-vectorizable_arr!(6);
-vectorizable_arr!(7);
-vectorizable_arr!(8);
-vectorizable_arr!(9);
-vectorizable_arr!(10);
-vectorizable_arr!(11);
-vectorizable_arr!(12);
-vectorizable_arr!(13);
-vectorizable_arr!(14);
-vectorizable_arr!(15);
-vectorizable_arr!(16);
+impl<T, TR, const S: usize> Vectorizable<[TR; S]> for [T; S]
+where
+    T: Vectorizable<TR> + Copy,
+    T::Padding: Copy,
+{
+    type Vectorizer = [T::Vectorizer; S];
+    type Padding = [T::Padding; S];
+    #[inline]
+    fn create(self, pad: Option<Self::Padding>) -> (Self::Vectorizer, usize, Option<[TR; S]>) {
+        let mut vectorizer = MaybeUninit::<Self::Vectorizer>::uninit();
+        let mut size = 0;
+        let mut padding = MaybeUninit::<[TR; S]>::uninit();
+        let mut seen_some_pad = false;
+        let mut seen_none_pad = false;
+        unsafe {
+            for i in 0..S {
+                let (v, s, p) = self[i].create(pad.map(|p| p[i]));
+                ptr::write(vectorizer.as_mut_ptr().cast::<T::Vectorizer>().add(i), v);
+                if i == 0 {
+                    size = s;
+                } else {
+                    assert_eq!(size, s, "Vectorized lengths inconsistent across the array",);
+                }
+                match p {
+                    Some(p) => {
+                        seen_some_pad = true;
+                        ptr::write(padding.as_mut_ptr().cast::<TR>().add(i), p);
+                    }
+                    None => seen_none_pad = true,
+                }
+            }
+            assert!(
+                !seen_some_pad || !seen_none_pad,
+                "Paddings inconsistent across the array",
+            );
+            let padding = if seen_some_pad {
+                Some(padding.assume_init())
+            } else {
+                None
+            };
+            (vectorizer.assume_init(), size, padding)
+        }
+    }
+}
 
 impl<'a, T> Vectorizer<T> for &'a [T]
 where
@@ -705,7 +672,29 @@ impl<'a, T> Vectorizer<&'a mut T> for &'a mut [T] {
     }
 }
 
-// Note: The vectorizable traits for &[Vector] and &mut [Vector] are in the macros in vector.rs
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizable<Vector<A, B, S>>
+    for &'a [Vector<A, B, S>]
+{
+    type Padding = ();
+    type Vectorizer = &'a [Vector<A, B, S>];
+    fn create(self, _pad: Option<()>) -> (Self::Vectorizer, usize, Option<Vector<A, B, S>>) {
+        (self, self.len(), None)
+    }
+}
+
+impl<'a, A: Align, B: Repr, const S: usize> Vectorizable<&'a mut Vector<A, B, S>>
+    for &'a mut [Vector<A, B, S>]
+{
+    type Padding = ();
+    type Vectorizer = &'a mut [Vector<A, B, S>];
+    fn create(
+        self,
+        _pad: Option<()>,
+    ) -> (Self::Vectorizer, usize, Option<&'a mut Vector<A, B, S>>) {
+        let len = self.len();
+        (self, len, None)
+    }
+}
 
 #[cfg(test)]
 mod tests {

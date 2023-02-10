@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1631432046467,
+  "lastUpdate": 1676059698566,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -279,6 +279,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 461919,
             "range": "± 7724",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d493b12e910158cc2162b43e0a1ac82e7c59975",
+          "message": "Merge pull request #12 from HadrienG2/array-from\n\nConversion to and from array",
+          "timestamp": "2023-02-10T21:00:29+01:00",
+          "tree_id": "0fca2ab6425fc039d27fc136afcc68daab82767d",
+          "url": "https://github.com/vorner/slipstream/commit/7d493b12e910158cc2162b43e0a1ac82e7c59975"
+        },
+        "date": 1676059698280,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 68789,
+            "range": "± 125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 548637,
+            "range": "± 598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 128480,
+            "range": "± 709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 548706,
+            "range": "± 1443",
             "unit": "ns/iter"
           }
         ]

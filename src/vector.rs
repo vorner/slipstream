@@ -22,6 +22,7 @@ use core::iter::{Product, Sum};
 use core::mem::{self, MaybeUninit};
 use core::ops::*;
 use core::ptr;
+use num_traits::Float;
 
 use self::align::Align;
 use crate::inner::Repr;
@@ -700,6 +701,30 @@ where
     );
 }
 
+impl<A, B, const S: usize> Vector<A, B, S>
+where
+    A: Align,
+    B: Repr + Float,
+{
+    /// Fused multiply-add. Computes (self * a) + b with only one rounding
+    /// error, yielding a more accurate result than an unfused multiply-add.
+    ///
+    /// Using mul_add can be more performant than an unfused multiply-add if the
+    /// target architecture has a dedicated fma CPU instruction.
+    pub fn mul_add(self, a: Self, b: Self) -> Self {
+        let mut result = Self::splat(B::zero());
+        for ((res, &s), (&a, &b)) in result
+            .data
+            .iter_mut()
+            .zip(self.data.iter())
+            .zip(a.data.iter().zip(b.data.iter()))
+        {
+            *res = s.mul_add(a, b);
+        }
+        result
+    }
+}
+
 impl<A: Align, B: Repr, const S: usize> Masked for Vector<A, B, S> {
     type Mask = Vector<A, B::Mask, S>;
 }
@@ -941,5 +966,14 @@ mod tests {
 
         let b2 = v1.blend(v2, [false, true, false, true]);
         assert_eq!(b1, b2);
+    }
+
+    #[test]
+    fn fma() {
+        let a = f32x4::new([1.0, 2.0, 3.0, 4.0]);
+        let b = f32x4::new([5.0, 6.0, 7.0, 8.0]);
+        let c = f32x4::new([9.0, 10.0, 11.0, 12.0]);
+
+        assert_eq!(a.mul_add(b, c), f32x4::new([14.0, 22.0, 32.0, 44.0]));
     }
 }

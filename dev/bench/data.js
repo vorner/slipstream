@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1676059698566,
+  "lastUpdate": 1676059726666,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -327,6 +327,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 548706,
             "range": "± 1443",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "af3903af9c52758fe2272c4c9e25b3e2cbf4cd59",
+          "message": "Merge pull request #11 from HadrienG2/fma\n\nAdd fused multiply-add",
+          "timestamp": "2023-02-10T21:00:21+01:00",
+          "tree_id": "c118aa5d8f30999b2f8ce91b907cae9be88e3c71",
+          "url": "https://github.com/vorner/slipstream/commit/af3903af9c52758fe2272c4c9e25b3e2cbf4cd59"
+        },
+        "date": 1676059725980,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 82841,
+            "range": "± 489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 660035,
+            "range": "± 2475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 145729,
+            "range": "± 606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 660900,
+            "range": "± 7868",
             "unit": "ns/iter"
           }
         ]

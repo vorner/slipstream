@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1676059726666,
+  "lastUpdate": 1676060164965,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -375,6 +375,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 660900,
             "range": "± 7868",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "distinct": true,
+          "id": "6a42d6d57602f5e84e5209a2314541c37ee2bf57",
+          "message": "Version 0.2.1",
+          "timestamp": "2023-02-10T21:12:57+01:00",
+          "tree_id": "f71b7a435f2bcc36c3147e3b507fb12526058eb3",
+          "url": "https://github.com/vorner/slipstream/commit/6a42d6d57602f5e84e5209a2314541c37ee2bf57"
+        },
+        "date": 1676060164211,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 82339,
+            "range": "± 67",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 658314,
+            "range": "± 2348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 116588,
+            "range": "± 478",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 658757,
+            "range": "± 2000",
             "unit": "ns/iter"
           }
         ]

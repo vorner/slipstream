@@ -1,3 +1,8 @@
+# 0.2.1
+
+* `From` implementations for relevant arrays.
+* `mul_add` support.
+
 # 0.2.0
 
 * Refactorings to use const generics instead of `generic_array`.

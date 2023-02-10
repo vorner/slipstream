@@ -760,6 +760,21 @@ impl<A: Align, B: Repr, const S: usize> AsMut<[B; S]> for Vector<A, B, S> {
     }
 }
 
+impl<A: Align, B: Repr, const S: usize> From<[B; S]> for Vector<A, B, S> {
+    #[inline]
+    fn from(data: [B; S]) -> Self {
+        Self::assert_size();
+        Self { _align: [], data }
+    }
+}
+
+impl<A: Align, B: Repr, const S: usize> From<Vector<A, B, S>> for [B; S] {
+    #[inline]
+    fn from(vector: Vector<A, B, S>) -> [B; S] {
+        vector.data
+    }
+}
+
 impl<I, A, B, const S: usize> Index<I> for Vector<A, B, S>
 where
     A: Align,
@@ -863,6 +878,12 @@ mod tests {
     #[should_panic(expected = "Creating vector from the wrong sized slice (expected 4, got 3)")]
     fn wrong_size_new() {
         V::new([1, 2, 3]);
+    }
+
+    #[test]
+    fn round_trip() {
+        let orig = [1, 2, 3, 4];
+        assert_eq!(<[u16; 4]>::from(u16x4::from(orig)), orig);
     }
 
     #[test]

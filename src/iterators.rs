@@ -388,7 +388,7 @@ pub struct ReadVectorizer<'a, A: Align, B: Repr, const S: usize> {
 unsafe impl<A: Align, B: Repr, const S: usize> Send for ReadVectorizer<'_, A, B, S> {}
 unsafe impl<A: Align, B: Repr, const S: usize> Sync for ReadVectorizer<'_, A, B, S> {}
 
-impl<'a, A: Align, B: Repr, const S: usize> Vectorizer<Vector<A, B, S>>
+impl<A: Align, B: Repr, const S: usize> Vectorizer<Vector<A, B, S>>
     for ReadVectorizer<'_, A, B, S>
 {
     #[inline(always)]

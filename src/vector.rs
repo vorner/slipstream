@@ -923,7 +923,7 @@ mod tests {
     #[test]
     fn gather() {
         let data = (1..=10).collect::<Vec<_>>();
-        let v = V::gather_load(&data, [0, 2, 4, 6]);
+        let v = V::gather_load(data, [0, 2, 4, 6]);
         assert_eq!(v, [1, 3, 5, 7]);
     }
 

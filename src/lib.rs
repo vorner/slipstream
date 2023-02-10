@@ -281,6 +281,8 @@ mod inner {
 
     /// A trait to enable vectors to use this type as the base type.
     ///
+    /// # Safety
+    ///
     /// This is in a private module to prevent users creating their own „crazy“ vector
     /// implementations. We make some non-trivial assumptions about the inner types and be are
     /// conservative at least until we figure out what *exact* assumptions these are and formalize

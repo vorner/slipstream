@@ -1,4 +1,3 @@
-use multiversion::multiversion;
 use test::Bencher;
 
 use slipstream::prelude::*;

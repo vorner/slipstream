@@ -9,11 +9,7 @@ type V = f32x8;
 
 const SIZE: usize = 4096 * 100;
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
-#[clone(target = "[arm|aarch64]+neon")]
+#[multiversion(targets = "simd")]
 fn sum(data: &[V]) -> f32 {
     data.iter().copied().sum::<V>().horizontal_sum()
 }
@@ -22,10 +18,7 @@ fn sum_scalar(data: &[f32]) -> f32 {
     data.iter().copied().sum()
 }
 
-#[multiversion]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx+avx2+fma")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1+avx")]
-#[clone(target = "[x86|x86_64]+sse+sse2+sse3+sse4.1")]
+#[multiversion(targets = "simd")]
 fn dot_product(l: &[f32], r: &[f32]) -> f32 {
     (l, r)
         .vectorize()

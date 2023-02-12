@@ -1,7 +1,6 @@
 use std::iter;
 use std::mem;
 
-use multiversion::multiversion;
 use once_cell::sync::Lazy;
 use test::Bencher;
 

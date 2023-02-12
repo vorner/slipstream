@@ -25,7 +25,7 @@ const SIZE: usize = 80;
 //   process two independent FMAs per CPU cycle). If we only feed those with a
 //   single stream of instructions that depend on each other, we lose perf.
 // - It is the granularity at which we amortize non-arithmetic operations like
-//   loop control code and
+//   loop control code and scalar element broadcasting.
 //
 // Do not tune it too high or you will run out of CPU registers!
 //

@@ -13,7 +13,7 @@ use std::time::Instant;
 // means we don't have to implement cache blocking optimizations to achive
 // compute-bound performance and show the optimal effect of SIMD.
 //
-// The matrix size should be divisible by `V::LANES * SIMD_ILP`.
+// The matrix size should be divisible by `V::LANES * CHUNK_VECS`.
 //
 const SIZE: usize = 80;
 

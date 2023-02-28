@@ -9,7 +9,11 @@ use std::time::Instant;
 
 // Size of the vectors that are being multiplied
 //
+// This small vector size is chosen such that the working set fits in L1 cache,
+// which is required to get optimal performance out of SIMD.
+//
 // The vector size should be divisible by `V::LANES * CHUNK_VECS`.
+//
 const SIZE: usize = 4096;
 
 // Number of output SIMD vectors we process concurrently in the

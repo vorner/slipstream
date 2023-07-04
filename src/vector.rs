@@ -711,6 +711,7 @@ where
     ///
     /// Using mul_add can be more performant than an unfused multiply-add if the
     /// target architecture has a dedicated fma CPU instruction.
+    #[inline]
     pub fn mul_add(self, a: Self, b: Self) -> Self {
         let mut result = Self::splat(B::zero());
         for ((res, &s), (&a, &b)) in result

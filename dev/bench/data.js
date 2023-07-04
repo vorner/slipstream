@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1676060164965,
+  "lastUpdate": 1688454183990,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -423,6 +423,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 658757,
             "range": "± 2000",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f0630d8dddef381728cf1322a8de8fb4fa367eb",
+          "message": "Merge pull request #14 from HadrienG2/patch-1\n\nMake mul_add inline",
+          "timestamp": "2023-07-04T09:00:03+02:00",
+          "tree_id": "43858cb940c07aff477498eda8ce2a4df4c117c4",
+          "url": "https://github.com/vorner/slipstream/commit/8f0630d8dddef381728cf1322a8de8fb4fa367eb"
+        },
+        "date": 1688454183395,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 69014,
+            "range": "± 1340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 549062,
+            "range": "± 638",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 129665,
+            "range": "± 579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 549079,
+            "range": "± 1403",
             "unit": "ns/iter"
           }
         ]

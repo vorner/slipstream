@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1688454183990,
+  "lastUpdate": 1693142522872,
   "repoUrl": "https://github.com/vorner/slipstream",
   "entries": {
     "Track benchmarks": [
@@ -471,6 +471,54 @@ window.BENCHMARK_DATA = {
             "name": "dot_product_scalar",
             "value": 549079,
             "range": "± 1403",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vorner@vorner.cz",
+            "name": "Michal 'vorner' Vaner",
+            "username": "vorner"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0b6bc1ab879a2ef0cd28200d9c0d6bc8547305e0",
+          "message": "Merge pull request #15 from szabgab/master-1\n\nUpdate Cargo.toml http => https",
+          "timestamp": "2023-08-27T15:18:35+02:00",
+          "tree_id": "81c2caa86b713bb9e2ccefa6151b0826fdb1c209",
+          "url": "https://github.com/vorner/slipstream/commit/0b6bc1ab879a2ef0cd28200d9c0d6bc8547305e0"
+        },
+        "date": 1693142522282,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "sum_vec",
+            "value": 81601,
+            "range": "± 3045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "sum_scalar",
+            "value": 641386,
+            "range": "± 10592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_vec",
+            "value": 143073,
+            "range": "± 675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "dot_product_scalar",
+            "value": 625896,
+            "range": "± 14098",
             "unit": "ns/iter"
           }
         ]
